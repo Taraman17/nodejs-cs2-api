@@ -165,7 +165,8 @@ http.createServer((req, res) => {
         // Start Server
         if (args.action == "start" && !state.serverRunning) {
             console.log('starting server.');
-            let commandLine = `${cfg.serverCommandline} +map ${args.startmap}`;
+            let startMap = args.startmap || "de_dust2";
+            let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
             var serverProcess = exec(commandLine, function(error, stdout, stderr) {
                 if (error) {
                     // node couldn't execute the command.
@@ -196,8 +197,6 @@ http.createServer((req, res) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${!state.serverRunning} }`);
                 res.end();
-                // move demo files to another directory.
-                exec('mv /home/taraman/csgo_ds/csgo/*.dem /home/taraman/csgo_ds/csgo/demos');
             }).catch((err) => {
                 console.log('Stopping server Failed: ' + err);
                 res.writeHeader(200, {"Content-Type": "application/json"});
@@ -365,8 +364,6 @@ receiver.on('data', (data) => {
             mapChangeEmitter.emit('completed');
             console.log(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
-            // move demo files to another directory.
-            exec('mv /home/taraman/csgo_ds/csgo/*.dem /home/taraman/csgo_ds/csgo/demos');
         } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
             console.log('detected match start.');
             queryMaxRounds();
