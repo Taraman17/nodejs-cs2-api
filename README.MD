@@ -1,7 +1,7 @@
 # CS:GO Server Control with a Nodejs-powered web-API
 
 ## Disclaimer
-As of now, this script should only be used on private servers not yccessible from the internet.
+As of now, this script should only be used on private servers not accessible from the internet.
 It allows control of the the Server and as of now has no built in Authentication. So basically everyone could takeover your server.
 
 Secure communication and authentication are the next todos on my list.
@@ -29,7 +29,8 @@ The /control message will return a JSON-String.
 'action' can have the following values:
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
-- start -> requires an additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }
+- start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }<br>
+If run without startmap, server will be started with famous de_dust2.
 - stop -> stop the server: { "success": true/false }
 
 ### RCON
