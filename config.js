@@ -10,6 +10,11 @@
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
+            // https settings
+            'useHttps': false,
+            'httpsCertificate': '',
+            'httpsPrivateKey': '',
+            'httpsCa': '',
             // Path to steamcmd, can stay like this if installed via package manager.
             'steamExe': 'steamcmd',
             // The folder, where your srcds_run is located
@@ -47,5 +52,18 @@
 
     get serverCommandline () {
         return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
+    }
+
+    get useHttps () {
+        return this._userOptions.useHttps;
+    }
+    get httpsCertificate () {
+        return this._userOptions.httpsCertificate;
+    }
+    get httpsPrivateKey () {
+        return this._userOptions.httpsPrivateKey;
+    }
+    get httpsCa () {
+        return this._userOptions.httpsCa;
     }
 };

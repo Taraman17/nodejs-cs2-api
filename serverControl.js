@@ -16,9 +16,9 @@
 
 const rcon = require('rcon-srcds');
 const logReceiver = require('srcds-log-receiver');
-const http = require('http');
 const webSocket = require('ws')
 const url = require('url');
+const fs = require('fs');
 const events = require('events');
 const pty = require('node-pty');
 const { exec, spawn } = require('child_process');
@@ -40,6 +40,16 @@ var state = {
 }
 var serverInfo = new si();
 var cfg = new config();
+var httpOptions = {};
+// if configured for https, we fork here.
+if (cfg.useHttps) {
+    const http = require('https');
+    httpOptions = { 
+        key: fs.readFileSync(cfg.httpsPrivateKey),
+        cert: fs.readFileSync(cfg.httpsCertificate) };
+} else {
+    const http = require('http');
+}
 
 // check for running Server on Startup
 exec('/bin/ps -a', (error, stdout, stderr) => {
@@ -154,7 +164,7 @@ function executeRcon (message) {
 /**
  * Creates a http server to communicate with a webInteraface.
  */
-http.createServer((req, res) => {
+http.createServer(httpOptions, (req, res) => {
     var myUrl = url.parse(req.url, true);
 
     // Process "control" messages.
@@ -279,7 +289,10 @@ http.createServer((req, res) => {
 }).listen(8090);
 
 /*----------------- WebSockets Code -------------------*/
-const wss = new webSocket.Server({ port: 8091 })
+let wssOptions = httpOptions;
+wssOptions.port = 8091;
+const wssServer = https.createServer(wssOptions);
+const wss = new webSocket.Server({ wssServer });
 
 /**
  * Websocket to send data updates to a webClient.
