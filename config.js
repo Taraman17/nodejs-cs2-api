@@ -39,12 +39,9 @@ module.exports = class config {
             'updateScript': '/home/csgo/update_csgo.txt'
         };
 
-    this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
+        this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
         this.csgoCommand = `${this._userOptions.csgoDir}/srcds_run`;
         this.csgoArgs = `-game csgo -console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
-        this.updateCommand = `${this._userOptions.steamExe}`;
-        this.updateArguments = [`+login ${this._userOptions.steamAccount}`,
-                                `+runscript ${this._userOptions.updateScript}`];
     }
 
     get rconPass () {
@@ -57,6 +54,13 @@ module.exports = class config {
 
     get serverCommandline () {
         return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
+    }
+    get updateCommand () {
+        return this._userOptions.steamExe
+    }
+    get updateArguments () {
+        return [`+login ${this._userOptions.steamAccount}`,
+                `+runscript ${this._userOptions.updateScript}`];
     }
 
     get useHttps () {
