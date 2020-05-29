@@ -36,19 +36,25 @@ var state = {
     'serverRunning': false,
     'serverRcon': undefined,
     'authenticated': false,
-    'authenticating': false
+    'authenticating': false,
+    'updating': false
 }
 var serverInfo = new si();
 var cfg = new config();
+var http = undefined;
 var httpOptions = {};
 // if configured for https, we fork here.
 if (cfg.useHttps) {
-    const http = require('https');
+    http = require('https');
     httpOptions = { 
         key: fs.readFileSync(cfg.httpsPrivateKey),
-        cert: fs.readFileSync(cfg.httpsCertificate) };
+        cert: fs.readFileSync(cfg.httpsCertificate),
+    };
+    if (cfg.httpsCa != '') {
+        httpOptions.ca = fs.readFileSync(cfg.httpsCa)
+    }
 } else {
-    const http = require('http');
+    http = require('http');
 }
 
 // check for running Server on Startup
@@ -215,20 +221,27 @@ http.createServer(httpOptions, (req, res) => {
             });
 
         //Update Server
-        } else if (args.action == "update") {
+        } else if (args.action == "update" && !state.updating) {
+            let updateSuccess = false;
+            state.updating = true;
             console.log('Updating Server.');
             let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
             updateProcess.on('data', (data) => {
-                if (data.indexOf("Update state (0x") != -1) {
+                console.log(data);
+                if (data.indexOf('Update state (0x') != -1) {
                     let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,2})\.\d{2}/;
                     let matches = rex.exec(data);
                     updateEmitter.emit('progress', matches[1], matches[2]);
+                } else if (data.indexOf('Success!') != -1) {
+                    console.log('update succeeded');
+                    updateSuccess = true;
                 }
             });
             updateProcess.on('close', (code) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "success": true }`);
+                res.write(`{ "success": ${updateSuccess} }`);
                 res.end();
+                state.updating = false;
             });
 
         // Send Status
@@ -285,14 +298,16 @@ http.createServer(httpOptions, (req, res) => {
             res.write('{ "error": true }');
             res.end();
         }
+    } else {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHeader(200, { 'Content-Type': 'text/plain' });
+        res.write('command ignored');
     }
 }).listen(8090);
 
 /*----------------- WebSockets Code -------------------*/
-let wssOptions = httpOptions;
-wssOptions.port = 8091;
-const wssServer = https.createServer(wssOptions);
-const wss = new webSocket.Server({ wssServer });
+const wssServer = http.createServer(httpOptions);
+const wss = new webSocket.Server({ server: wssServer });
 
 /**
  * Websocket to send data updates to a webClient.
@@ -340,6 +355,14 @@ wss.on('connection', (ws) => {
         serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
         updateEmitter.removeListener('progress', reportProgress);
     });
+});
+
+wssServer.listen(8091, () => {
+    if(cfg.useHttps) {
+        const ws = new webSocket(`wss://klosser.duckdns.org:${wssServer.address().port}`);
+    } else {
+        const ws = new webSocket(`ws://klosser.duckdns.org:${wssServer.address().port}`);
+    }
 });
 
 /*----------------- log receiving code --------------------*/
