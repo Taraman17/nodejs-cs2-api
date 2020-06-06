@@ -20,7 +20,7 @@ Start the script with
 ```console
 node serverControl.js
 ```
-Then use the following GET Messages to control the server (These examples assume usage of jquery):
+Then use the following GET Messages to control the server. If you have certificates configured, you can also use https:// (These examples assume usage of jquery):
 ### Server Control
 ```javascript
 $.get('http://your-servers-address:8090/control', 'action=status')
@@ -50,4 +50,13 @@ Gets information on the server as JSON-String. See serverInfo.js for available d
 A websocket is available on port 8091 to receive further information.
 Currently avialable are update-progress and ServerInfo as any value changes.
 
-Documentation to be completed.
+ServerInfo message looks as follows:
+```javascript
+{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())}
+```
+For now, Serverinfo is always sent completely
+
+UpdateProgress looks as follows:
+```javascript
+{ "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
+```
