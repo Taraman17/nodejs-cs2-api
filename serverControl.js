@@ -225,6 +225,7 @@ http.createServer(httpOptions, (req, res) => {
             let updateSuccess = false;
             state.updating = true;
             console.log('Updating Server.');
+            console.log(cfg.updateCommand + ' ' + cfg.updateArguments[0] + ' ' + cfg.updateArguments[1]);
             let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
             updateProcess.on('data', (data) => {
                 console.log(data);
@@ -385,7 +386,6 @@ var receiver = new logReceiver.LogReceiver(logOptions);
  */
 receiver.on('data', (data) => {
     if (data.isValid) {
-    // writeStream.write(data.message);
         // Start authentication, when not authenticated.
         if ((data.message.indexOf("Log file started") != -1) && !state.authenticated) {
             console.log("start authenticating");
@@ -400,10 +400,11 @@ receiver.on('data', (data) => {
             mapChangeEmitter.emit('completed');
             console.log(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
+            serverInfo.newRound();
         } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
             console.log('detected match start.');
             queryMaxRounds();
-            serverInfo.newRound;
+            serverInfo.newRound();
         } else if (/Team \"\S+\" scored/.test(data.message)) {
             // L 02/10/2019 - 21:31:15: Team "CT" scored "1" with "2" players
             // L 02/10/2019 - 21:31:15: Team "TERRORIST" scored "1" with "2" players
@@ -411,15 +412,20 @@ receiver.on('data', (data) => {
             let matches = rex.exec(data.message);
             serverInfo.score = matches;
         } else if (/".+<\d+><STEAM_\d:\d:\d+>/.test(data.message)) {
-            // L 05/11/2020 - 22:19:11: "[Klosser] John Corey<10><STEAM_1:1:6357044><>" entered the game
-            // L 05/11/2020 - 22:19:13: "[Klosser] TreffNix<11><STEAM_1:1:6871684>" switched from team <Unassigned> to <CT>
-            // L 05/11/2020 - 22:50:47: "[Klosser] TreffNix<11><STEAM_1:1:6871684><Unassigned>" disconnected (reason "Disconnect")
+            // L 05/11/2020 - 22:19:11: "Dummy<10><STEAM_0:0:0000000><>" entered the game
+            // L 05/11/2020 - 22:19:13: "Dummy<11><STEAM_0:0:0000000>" switched from team <Unassigned> to <CT>
+            // L 06/03/2020 - 14:37:36: "Dummy<3><STEAM_0:0:0000000>" switched from team <TERRORIST> to <Spectator>
+            // L 05/11/2020 - 22:50:47: "Dummy<11><STEAM_0:0:0000000><Unassigned>" disconnected (reason "Disconnect")
             let rex = /"(.+)<\d+><(STEAM_\d+:\d+:\d+)>/g;
             let matches = rex.exec(data.message);
             if (data.message.indexOf("entered the game") != -1) {
                 serverInfo.addPlayer( {'name': matches[1], 'steamID': matches[2]} );
             } else if (data.message.search(/disconnected \(reason/) != -1) {
                 serverInfo.removePlayer(matches[2]);
+            } else if (data.message.indexOf("switched from team") != -1) {
+                rex = /<(STEAM_\d+:\d+:\d+)>.*switched from team <\S+> to <(\S+)>/g;
+                matches = rex.exec(data.message);
+                serverInfo.assignPlayer(matches[1], matches[2]);
             }
         }
     }

@@ -11,8 +11,9 @@ module.exports = class serverInfo {
             'C': 0
         };
         this._players = [
-            //'name': '',
-            //'steamID': ''
+            //{ 'name': '',
+            //  'steamID': ''
+            //  'team': '' }
         ];
         
         // emitter to notify of changes
@@ -57,14 +58,24 @@ module.exports = class serverInfo {
         return this._players;
     }
     addPlayer(newPlayer) {
+        newPlayer.team = 'U';
         this._players.push(newPlayer);
+        this.serverInfoChanged.emit('change');
+    }
+    assignPlayer(steamID, team) {
+        for (let i=0; i < this._players.length; i++) {
+            if (this._players[i].steamID == steamID) {
+                this._players[i].team = team.substr(0,1);
+                i = this._players.length;
+            }
+        }
         this.serverInfoChanged.emit('change');
     }
     removePlayer(steamID) {
         for (let i=0; i < this._players.length; i++) {
             if (this._players[i].steamID == steamID) {
                 this._players.splice(i, 1);
-                break;
+                i = this._players.length;
             }
         }
         this.serverInfoChanged.emit('change');
