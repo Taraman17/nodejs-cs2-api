@@ -4,7 +4,7 @@
 As of now, this script should only be used on private servers not accessible from the internet.
 It allows control of the the Server and as of now has no built in Authentication. So basically everyone could takeover your server.
 
-Secure communication and authentication are the next todos on my list.
+Authentication is the next todo on my list.
 
 ## Install
 download the script files to and install the dependencies for nodejs
@@ -14,6 +14,15 @@ npm install --save rcon-srcds srcds-log-receiver node-pty ws
 
 ## Configuration
 Edit the settings in config.js
+
+The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 9871
+```
+log on
+mp_logfile 1
+mp_logdetail 3
+mp_logmessages 1
+logaddress_add xxx.xxx.xxx.xxx:9871
+```
 
 ## Usage
 Start the script with 
