@@ -96,7 +96,7 @@ module.exports = class serverInfo {
         };
     }
 
-    newRound() {
+    newMatch() {
         this._score.C = 0;
         this._score.T = 0;
         this.serverInfoChanged.emit('change');

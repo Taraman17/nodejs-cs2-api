@@ -9,7 +9,7 @@
  * @requires url
  * @requires events
  * @requires node-pty
- + @requires child_process
+ * @requires child_process
  * @requires ./serverInfo.js
  * @requires ./config.js
  */
@@ -27,20 +27,20 @@ const config = require('./config.js');
 
 /**
  * Stores the state of the controlled server-instance.
- * @property {boolean}  serverRunning   - Is the server process running.
- * @property {object}   sererRcon       - rcon-srcds instance for the server.
- * @property {boolean}  authenticated   - Is the rcon instance authenticated with the server.
- * @property {boolean}  authenticating  - Is the program currentlc trying to authenticate.
+ * @property {boolean}  operationPending - Is a control operation pending.
+ * @property {boolean}  serverRunning    - Is the server process running.
+ * @property {object}   serverRcon       - rcon-srcds instance for the server.
+ * @property {boolean}  authenticated    - Is the rcon instance authenticated with the server.
  */
 var state = {
+    'operationPending': false,
     'serverRunning': false,
     'serverRcon': undefined,
-    'authenticated': false,
-    'authenticating': false,
-    'updating': false
+    'authenticated': false
 }
 var serverInfo = new si();
 var cfg = new config();
+var localIP = require('local-ip')(cfg.iface);
 var http = undefined;
 var httpOptions = {};
 // if configured for https, we fork here.
@@ -125,10 +125,10 @@ authEmitter.on('authenticated', () => {
  */
 function authenticate() {
     return new Promise((resolve, reject) => {
-        if (!state.authenticating) {
+        if (!state.operationPending) {
             console.log("authenticating...");
             if (!state.authenticated) {
-                state.authenticating = true;
+                state.operationPending = true;
                 state.serverRcon = new rcon();
                 state.serverRcon.authenticate(cfg.rconPass).then(() => {
                     authEmitter.emit('authenticated');
@@ -138,7 +138,7 @@ function authenticate() {
                     reject(`{ "authenticated": false }`);
                     console.log("...failed");
                 });
-                state.authenticating = false;
+                state.operationPending = false;
 
             } else {
                 authEmitter.emit('authenticated');
@@ -179,7 +179,8 @@ http.createServer(httpOptions, (req, res) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
 
         // Start Server
-        if (args.action == "start" && !state.serverRunning) {
+        if (args.action == "start" && !state.serverRunning && !state.operationPending) {
+            state.operationPending = true;
             console.log('starting server.');
             let startMap = args.startmap || "de_dust2";
             let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
@@ -193,6 +194,7 @@ http.createServer(httpOptions, (req, res) => {
                     console.log('Signal received: '+error.signal);
                     console.log(stderr);
                     state.serverRunning = false;
+                    state.operationPending = false;
                 } else {
                     console.log('screen started');
                     authEmitter.once('authenticated', () => {
@@ -201,11 +203,13 @@ http.createServer(httpOptions, (req, res) => {
                         res.end();
                     });
                     state.serverRunning = true;
+                    state.operationPending = false;
                 }
             });
 
         // Stop Server
-        } else if (args.action == "stop") {
+        } else if (args.action == "stop" && !state.operationPending) {
+            state.operationPending = true;
             console.log("sending quit.");
             executeRcon('quit').then((answer) => {
                 state.serverRunning = false;
@@ -213,19 +217,20 @@ http.createServer(httpOptions, (req, res) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${!state.serverRunning} }`);
                 res.end();
+                state.operationPending = false;
             }).catch((err) => {
                 console.log('Stopping server Failed: ' + err);
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${!state.serverRunning} }`);
                 res.end();
+                state.operationPending = false;
             });
 
         //Update Server
-        } else if (args.action == "update" && !state.updating) {
+        } else if (args.action == "update" && !state.updating && !state.running && !state.operationPending) {
+            state.operationPending = true;
             let updateSuccess = false;
-            state.updating = true;
             console.log('Updating Server.');
-            console.log(cfg.updateCommand + ' ' + cfg.updateArguments[0] + ' ' + cfg.updateArguments[1]);
             let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
             updateProcess.on('data', (data) => {
                 console.log(data);
@@ -236,13 +241,14 @@ http.createServer(httpOptions, (req, res) => {
                 } else if (data.indexOf('Success!') != -1) {
                     console.log('update succeeded');
                     updateSuccess = true;
+                    state.operationPending = false;
                 }
             });
             updateProcess.on('close', (code) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${updateSuccess} }`);
                 res.end();
-                state.updating = false;
+                state.operationPending = false;
             });
 
         // Send Status
@@ -250,14 +256,6 @@ http.createServer(httpOptions, (req, res) => {
             res.writeHeader(200, {"Content-Type": "application/json"});
             res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
             res.end();
-
-        // follow mapchange
-        } else if (args.action == "mapstart") {
-            mapChangeEmitter.once('completed', () => {
-                res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "completed": true }`);
-                res.end();
-            });
         }
 
     // Process "authenticate" message.
@@ -359,17 +357,25 @@ wss.on('connection', (ws) => {
 });
 
 wssServer.listen(8091, () => {
-    if(cfg.useHttps) {
-        const ws = new webSocket(`wss://klosser.duckdns.org:${wssServer.address().port}`);
+    let host = '';
+    if (cfg.host != '') {
+        host = cfg.host;
+        console.log(cfg.host);
     } else {
-        const ws = new webSocket(`ws://klosser.duckdns.org:${wssServer.address().port}`);
+        host = localIP;
+        console.log(localIP);
+    }
+
+    if(cfg.useHttps) {
+        const ws = new webSocket(`wss://${host}:${wssServer.address().port}`);
+    } else {
+        const ws = new webSocket(`ws://${host}:${wssServer.address().port}`);
     }
 });
 
 /*----------------- log receiving code --------------------*/
 // Since we only control locally installed servers and server logging is not working on
 // 'localhost', we use the ip-address of the interface configured.
-var localIP = require('local-ip')(cfg.iface);
 console.log("local IP is: " + localIP);
 var logOptions = {
     address: localIP
@@ -388,9 +394,15 @@ receiver.on('data', (data) => {
     if (data.isValid) {
         // Start authentication, when not authenticated.
         if ((data.message.indexOf("Log file started") != -1) && !state.authenticated) {
+            // Start of logfile
+            // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
             console.log("start authenticating");
             authenticate();
+            if (cfg.script('logStart') != '') {
+                exec(cfg.script('logStart'));
+            }
         } else if (data.message.indexOf("Started map") != -1) {
+            // Start of map.
             // 'L 12/29/2005 - 13:33:49: Started map "cs_italy" (CRC "1940414799")
             let rex = /Started map \"(\S+)\"/g;
             let matches = rex.exec(data.message);
@@ -400,18 +412,46 @@ receiver.on('data', (data) => {
             mapChangeEmitter.emit('completed');
             console.log(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
-            serverInfo.newRound();
+            serverInfo.newMatch();
+            if (cfg.script('mapStart') != '') {
+                exec(cfg.script('mapStart'));
+            }
         } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
+            // Start of a new match.
+            // L 08/13/2020 - 21:49:26: World triggered "Match_Start" on "de_nuke"
             console.log('detected match start.');
             queryMaxRounds();
-            serverInfo.newRound();
+            serverInfo.newMatch();
+            if (cfg.script('matchStart') != '') {
+                exec(cfg.script('matchStart'));
+            }
+        } else if (data.message.indexOf('World triggered "Round_Start"') != -1) {
+            // Start of round.
+            // L 08/13/2020 - 21:49:28: World triggered "Round_Start"
+            if (cfg.script('roundStart') != '') {
+                exec(cfg.script('roundStart'));
+            }
         } else if (/Team \"\S+\" scored/.test(data.message)) {
+            // Team scores at end of round.
             // L 02/10/2019 - 21:31:15: Team "CT" scored "1" with "2" players
             // L 02/10/2019 - 21:31:15: Team "TERRORIST" scored "1" with "2" players
             rex = /Team \"(\S)\S+\" scored \"(\d+)\"/g;
             let matches = rex.exec(data.message);
             serverInfo.score = matches;
+        } else if (data.message.indexOf('World triggered "Round_End"') != -1) {
+            // End of round.
+            // L 08/13/2020 - 22:24:22: World triggered "Round_End"
+            if (cfg.script('roundEnd') != '') {
+                exec(cfg.script('roundEnd'));
+            }
+        } else if (data.message.indexOf("Game Over:") != -1) {
+            // End of match.
+            // L 08/13/2020 - 22:24:22: Game Over: competitive 131399785 de_nuke score 16:9 after 35 min
+            if (cfg.script('matchEnd') != '') {
+                exec(cfg.script('matchEnd'));
+            }
         } else if (/".+<\d+><STEAM_\d:\d:\d+>/.test(data.message)) {
+            // Player join or teamchange.
             // L 05/11/2020 - 22:19:11: "Dummy<10><STEAM_0:0:0000000><>" entered the game
             // L 05/11/2020 - 22:19:13: "Dummy<11><STEAM_0:0:0000000>" switched from team <Unassigned> to <CT>
             // L 06/03/2020 - 14:37:36: "Dummy<3><STEAM_0:0:0000000>" switched from team <TERRORIST> to <Spectator>
@@ -426,6 +466,12 @@ receiver.on('data', (data) => {
                 rex = /<(STEAM_\d+:\d+:\d+)>.*switched from team <\S+> to <(\S+)>/g;
                 matches = rex.exec(data.message);
                 serverInfo.assignPlayer(matches[1], matches[2]);
+            }
+        } else if (data.message.indexOf('Log file closed') != -1) {
+            // end of current log file. (Usually on mapchange or server quit.)
+            // L 08/13/2020 - 22:25:00: Log file closed
+            if (cfg.script('logEnd') != '') {
+                exec(cfg.script('logEnd'));
             }
         }
     }
