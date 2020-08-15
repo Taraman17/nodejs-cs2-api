@@ -7,15 +7,19 @@ module.exports = class config {
             // Network interface over which the server is communicating. We set this and not the 
             // IP-address, in case the server is using DHCP in a LAN and not a static address.
             'iface': 'eth0',
+            // Hostname of the machine, this script runs on (e.g.: yourdomain.org).
+            // Leave empty if you use the IP of iface.
+            'host': '',
             // steam serverToken. To get one see https://steamcommunity.com/dev/managegameservers
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
             // https settings
             'useHttps': false,
+            // Optional: If you use https, add the path to the certificate files here.
             'httpsCertificate': '',
             'httpsPrivateKey': '',
-            // Optional.In case your CA is not trusted by default (e.g. letsencrypt), you can add 
+            // Optional: In case your CA is not trusted by default (e.g. letsencrypt), you can add 
             // the CA-Cert here.
             'httpsCa': '',
             // The folder, where your srcds_run is located
@@ -36,7 +40,16 @@ module.exports = class config {
             'steamAccount': '<username> <password>',
             // Script to pass into steamcmd to update.
             // See https://steamcommunity.com/discussions/forum/1/492379159713970561/ for more info.
-            'updateScript': '/home/csgo/update_csgo.txt'
+            'updateScript': '/home/csgo/update_csgo.txt',
+            // Scripts to run on various events. Use absolute path.
+            'logStartScript': '',
+            'mapStartScript': '',
+            'matchStartScript': '',
+            'roundStartScript': '',
+            'roundEndScript': '',
+            'matchEndScript': '',
+            //'mapEndScript': '', // For the moment I have no definite way to sense the end of map.
+            'logEndScript': ''
         };
 
         this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
@@ -50,6 +63,10 @@ module.exports = class config {
 
     get iface () {
         return this._userOptions.iface;
+    }
+
+    get host () {
+        return this._userOptions.host;
     }
 
     get serverCommandline () {
@@ -74,5 +91,9 @@ module.exports = class config {
     }
     get httpsCa () {
         return this._userOptions.httpsCa;
+    }
+
+    script (type) {
+        return this._userOptions[`${type}Script`];
     }
 };
