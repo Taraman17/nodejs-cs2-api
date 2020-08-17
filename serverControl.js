@@ -285,6 +285,14 @@ http.createServer(httpOptions, (req, res) => {
             res.end();
         });
 
+    // follow mapchange
+    } else if (args.action == "mapstart") {
+        mapChangeEmitter.once('completed', () => {
+            res.writeHeader(200, {"Content-Type": "application/json"});
+            res.write(`{ "completed": true }`);
+            res.end();
+        });
+
     // Process serverData request
     } else if (myUrl.pathname == "/serverInfo") {
         console.log('Processing Serverinfo request.');
