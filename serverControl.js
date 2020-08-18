@@ -256,6 +256,14 @@ http.createServer(httpOptions, (req, res) => {
             res.writeHeader(200, {"Content-Type": "application/json"});
             res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
             res.end();
+
+        // follow mapchange
+        } else if (args.action == "mapstart") {
+            mapChangeEmitter.once('completed', () => {
+                res.writeHeader(200, {"Content-Type": "application/json"});
+                res.write(`{ "completed": true }`);
+                res.end();
+            });
         }
 
     // Process "authenticate" message.
@@ -282,14 +290,6 @@ http.createServer(httpOptions, (req, res) => {
             res.setHeader("Access-Control-Allow-Origin", "*");
             res.writeHeader(200, { 'Content-Type': 'text/plain' });
             res.write("Error: " + err);
-            res.end();
-        });
-
-    // follow mapchange
-    } else if (args.action == "mapstart") {
-        mapChangeEmitter.once('completed', () => {
-            res.writeHeader(200, {"Content-Type": "application/json"});
-            res.write(`{ "completed": true }`);
             res.end();
         });
 
