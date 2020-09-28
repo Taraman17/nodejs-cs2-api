@@ -244,10 +244,11 @@ http.createServer(httpOptions, (req, res) => {
                     state.operationPending = false;
                 }
             });
-            updateProcess.on('close', (code) => {
+            updateProcess.once('close', (code) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${updateSuccess} }`);
                 res.end();
+                updateProcess.removeAllListeners();
                 state.operationPending = false;
             });
 
@@ -256,6 +257,67 @@ http.createServer(httpOptions, (req, res) => {
             res.writeHeader(200, {"Content-Type": "application/json"});
             res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
             res.end();
+
+        //change map
+        } else if (args.action == "changemap" && !state.operationPending) {
+            state.operationPending = true;
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.writeHeader(200, { 'Content-Type': 'application/json' });
+            // only try to change map, if it exists on the server.
+            if (serverInfo.mapsAvail.includes(args.map)) {
+                executeRcon(`map ${args.map}`).then((answer) => {
+                    if (!cfg.webSockets) {
+                        // If the mapchange completed event is fired, send success and cancel timeout.
+                        var sendCompleted = (result) => {
+                            res.write(`{ "success": ${result == 'success'} }`);
+                            res.end();
+                            clearTimeout(mapchangeTimeout);
+                            state.operationPending = false;
+                        };
+                        mapChangeEmitter.once('result', sendCompleted);
+
+                        // A mapchange should not take longer than 30 sec.
+                        let mapchangeTimeout = setTimeout( () => {
+                            mapChangeEmitter.emit('result', 'timeout');
+                            res.write(`{ "success": false }`);
+                            res.end();
+                            state.operationPending = false;
+                        }, 30000);
+                    } else {
+                        res.write(`{ "success": true }`);
+                        res.end();
+                        // If the mapchange is successful, cancel the timeout.
+                        var removeTimeout = (result) => {
+                            clearTimeout(mapchangeTimeout);
+                            state.operationPending = false;
+                        };
+                        mapChangeEmitter.once('result', removeTimeout);
+
+                        // A mapchange should not take longer than 30 sec.
+                        let mapchangeTimeout = setTimeout( () => {
+                            mapChangeEmitter.emit('result', 'timeout');
+                            state.operationPending = false;
+                        }, 30000);
+                    }
+                }).catch((err) => {
+                    res.write(`{ "success": false }`);
+                    res.end();
+                    state.operationPending = false;
+                });
+            } else {
+                res.write(`{ "success": false }`);
+                res.end();
+                state.operationPending = false;
+            }
+
+        // DEPRECATED - will be removed in future release, do not use.
+        // follow mapchange
+        } else if (args.action == "mapstart") {
+            mapChangeEmitter.once('result', (result) => {
+                res.writeHeader(200, {"Content-Type": "application/json"});
+                res.write(`{ "completed": ${result == 'success'} }`);
+                res.end();
+            });
         }
 
     // Process "authenticate" message.
@@ -312,6 +374,14 @@ const wss = new webSocket.Server({ server: wssServer });
  * Websocket to send data updates to a webClient.
  */
 wss.on('connection', (ws) => {
+    // Helper function to send ServerInfo to client.
+    /**
+     * Sends updated serverInfo to clients.
+     */
+    var sendUpdate = () => {
+        ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+    }
+
     // React to requests.
     /**
      * Listens for messages on Websocket.
@@ -319,17 +389,11 @@ wss.on('connection', (ws) => {
      */
     ws.on('message', (message) => {
         if (message.search("infoRequest") != -1) {
-            ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+            sendUpdate();
+            //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
         }
     });
 
-    // Send ServerInfo to client if a value changed.
-    /**
-     * Sends updated serverInfo to clients.
-     */
-    var sendUpdate = () => {
-        ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
-    }
     /**
      * Listens for changed serverInfo and calls function to forward them.
      * @listens serverInfo.serverInfoChanged#change
@@ -346,13 +410,25 @@ wss.on('connection', (ws) => {
      */
     updateEmitter.on('progress', reportProgress);
 
+    // Send info on completed mapchange.
+    var sendMapchangeComplete = (result) => {
+        ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
+        state.operationPending = false;
+    }
     /**
-     * Listens for Websocket to close and removes listener on serverInfo.
+     * Listens for completion of a mapchange.
+     * @listens mapChangeEmitter#completed
+     */
+     mapChangeEmitter.on('result', sendMapchangeComplete);
+
+    /**
+     * Listens for Websocket to close and removes listeners.
      * @listens ws#close
      */
     ws.on('close', (code, reason) => {
         serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
         updateEmitter.removeListener('progress', reportProgress);
+        mapChangeEmitter.removeListener('result', sendMapchangeComplete);
     });
 });
 
@@ -409,7 +485,7 @@ receiver.on('data', (data) => {
             let mapstring = matches[1];
             mapstring = cutMapName(mapstring);
             serverInfo.map = mapstring;
-            mapChangeEmitter.emit('completed');
+            mapChangeEmitter.emit('result', 'success');
             console.log(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
             serverInfo.newMatch();
