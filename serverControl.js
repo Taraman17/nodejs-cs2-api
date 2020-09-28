@@ -394,7 +394,7 @@ wss.on('connection', (ws) => {
 
     // Send info on completed mapchange.
     var sendMapchangeComplete = (result) => {
-        ws.send(`{ "type": "mapchange", "payload": { "completed": ${result == 'success'} } }`);
+        ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
         state.operationPending = false;
     }
     /**

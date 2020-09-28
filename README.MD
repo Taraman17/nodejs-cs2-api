@@ -40,6 +40,10 @@ The /control message will return a JSON-String.
 - update -> update the server (may take quite some time): { "success": true/false }
 - start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }<br>
 If run without startmap, server will be started with famous de_dust2.
+- changemap -> additional argument "map" (action=changemap&map=mapname): 
+If you do not use websockets, the answer will be { "success": true/false }. true if start of new map is logged, false in case of error or after a timeout of 30 seconds.
+If you use websockets, answer will be { "success": true/false } if the rcon command to server was sauccessful or not. Completion of mapchange is sent via the websocket in the format: { "type": "mapchange", "payload": { "success": true } }
+Note: currently only answer is true, since there is no log entry for a failed mapchange. Clients therefore have to set a timeout thmeselves.
 - stop -> stop the server: { "success": true/false }
 
 ### RCON
@@ -57,7 +61,7 @@ Gets information on the server as JSON-String. See serverInfo.js for available d
 
 ## Information Updates via WebSocket
 A websocket is available on port 8091 to receive further information.
-Currently avialable are update-progress and ServerInfo as any value changes.
+Currently avialable are update-progress, ServerInfo as any value changes and completion of mapchange (on start of new map).
 
 ServerInfo message looks as follows:
 ```javascript
