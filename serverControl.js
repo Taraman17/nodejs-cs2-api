@@ -244,10 +244,11 @@ http.createServer(httpOptions, (req, res) => {
                     state.operationPending = false;
                 }
             });
-            updateProcess.on('close', (code) => {
+            updateProcess.once('close', (code) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${updateSuccess} }`);
                 res.end();
+                updateProcess.removeAllListeners();
                 state.operationPending = false;
             });
 
@@ -258,39 +259,56 @@ http.createServer(httpOptions, (req, res) => {
             res.end();
 
         //change map
-        } else if (args.action == "changemap") {
+        } else if (args.action == "changemap" && !state.operationPending) {
             state.operationPending = true;
             res.setHeader("Access-Control-Allow-Origin", "*");
             res.writeHeader(200, { 'Content-Type': 'application/json' });
-            executeRcon(`map ${args.map}`).then((answer) => {
-                if (config.webSockets) {
-                    // If the mapchange completed event is fired, send success.
-                    var sendCompleted = (result) => {
-                        res.write(`{ "success": ${result == 'success'} }`);
-                        res.end();
-                        clearTimeout(mapchangeTimeout);
-                        state.operationPending = false;
-                    };
-                    mapChangeEmitter.once('result', sendCompleted);
+            // only try to change map, if it exists on the server.
+            if (serverInfo.mapsAvail.includes(args.map)) {
+                executeRcon(`map ${args.map}`).then((answer) => {
+                    if (!cfg.webSockets) {
+                        // If the mapchange completed event is fired, send success and cancel timeout.
+                        var sendCompleted = (result) => {
+                            res.write(`{ "success": ${result == 'success'} }`);
+                            res.end();
+                            clearTimeout(mapchangeTimeout);
+                            state.operationPending = false;
+                        };
+                        mapChangeEmitter.once('result', sendCompleted);
 
-                    // A mapchange should not take longer than 30 sec.
-                    let mapchangeTimeout = setTimeout( () => {
-                        mapChangeEmitter.removeListener('result', sendCompleted);
-                        res.write(`{ "success": false }`);
+                        // A mapchange should not take longer than 30 sec.
+                        let mapchangeTimeout = setTimeout( () => {
+                            mapChangeEmitter.emit('result', 'timeout');
+                            res.write(`{ "success": false }`);
+                            res.end();
+                            state.operationPending = false;
+                        }, 30000);
+                    } else {
+                        res.write(`{ "success": true }`);
                         res.end();
-                        state.operationPending = false;
-                    }, 30000);
-                } else {
-                    // If you use WebSockets, the client has to set a timeout for itself, since
-                    // the mapchange failed message is unfortunately not written to the logs.
-                    res.write(`{ "success": true }`);
+                        // If the mapchange is successful, cancel the timeout.
+                        var removeTimeout = (result) => {
+                            clearTimeout(mapchangeTimeout);
+                            state.operationPending = false;
+                        };
+                        mapChangeEmitter.once('result', removeTimeout);
+
+                        // A mapchange should not take longer than 30 sec.
+                        let mapchangeTimeout = setTimeout( () => {
+                            mapChangeEmitter.emit('result', 'timeout');
+                            state.operationPending = false;
+                        }, 30000);
+                    }
+                }).catch((err) => {
+                    res.write(`{ "success": false }`);
                     res.end();
-                }
-            }).catch((err) => {
+                    state.operationPending = false;
+                });
+            } else {
                 res.write(`{ "success": false }`);
                 res.end();
                 state.operationPending = false;
-            });
+            }
 
         // DEPRECATED - will be removed in future release, do not use.
         // follow mapchange

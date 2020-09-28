@@ -82,6 +82,9 @@ module.exports = class config {
                 `+runscript ${this._userOptions.updateScript}`];
     }
 
+    get webSockets () {
+        return this._userOptions.webSockets;
+    }
     get useHttps () {
         return this._userOptions.useHttps;
     }
