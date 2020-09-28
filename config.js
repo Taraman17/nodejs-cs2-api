@@ -14,6 +14,8 @@ module.exports = class config {
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
+            // set to true if you use Websockets for status updates
+            'webSockets': false,
             // https settings
             'useHttps': false,
             // Optional: If you use https, add the path to the certificate files here.

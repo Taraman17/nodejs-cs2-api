@@ -257,11 +257,47 @@ http.createServer(httpOptions, (req, res) => {
             res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
             res.end();
 
+        //change map
+        } else if (args.action == "changemap") {
+            state.operationPending = true;
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.writeHeader(200, { 'Content-Type': 'application/json' });
+            executeRcon(`map ${args.map}`).then((answer) => {
+                if (config.webSockets) {
+                    // If the mapchange completed event is fired, send success.
+                    var sendCompleted = (result) => {
+                        res.write(`{ "success": ${result == 'success'} }`);
+                        res.end();
+                        clearTimeout(mapchangeTimeout);
+                        state.operationPending = false;
+                    };
+                    mapChangeEmitter.once('result', sendCompleted);
+
+                    // A mapchange should not take longer than 30 sec.
+                    let mapchangeTimeout = setTimeout( () => {
+                        mapChangeEmitter.removeListener('result', sendCompleted);
+                        res.write(`{ "success": false }`);
+                        res.end();
+                        state.operationPending = false;
+                    }, 30000);
+                } else {
+                    // If you use WebSockets, the client has to set a timeout for itself, since
+                    // the mapchange failed message is unfortunately not written to the logs.
+                    res.write(`{ "success": true }`);
+                    res.end();
+                }
+            }).catch((err) => {
+                res.write(`{ "success": false }`);
+                res.end();
+                state.operationPending = false;
+            });
+
+        // DEPRECATED - will be removed in future release, do not use.
         // follow mapchange
         } else if (args.action == "mapstart") {
-            mapChangeEmitter.once('completed', () => {
+            mapChangeEmitter.once('result', (result) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "completed": true }`);
+                res.write(`{ "completed": ${result == 'success'} }`);
                 res.end();
             });
         }
@@ -320,6 +356,14 @@ const wss = new webSocket.Server({ server: wssServer });
  * Websocket to send data updates to a webClient.
  */
 wss.on('connection', (ws) => {
+    // Helper function to send ServerInfo to client.
+    /**
+     * Sends updated serverInfo to clients.
+     */
+    var sendUpdate = () => {
+        ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+    }
+
     // React to requests.
     /**
      * Listens for messages on Websocket.
@@ -327,17 +371,11 @@ wss.on('connection', (ws) => {
      */
     ws.on('message', (message) => {
         if (message.search("infoRequest") != -1) {
-            ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+            sendUpdate();
+            //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
         }
     });
 
-    // Send ServerInfo to client if a value changed.
-    /**
-     * Sends updated serverInfo to clients.
-     */
-    var sendUpdate = () => {
-        ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
-    }
     /**
      * Listens for changed serverInfo and calls function to forward them.
      * @listens serverInfo.serverInfoChanged#change
@@ -354,13 +392,25 @@ wss.on('connection', (ws) => {
      */
     updateEmitter.on('progress', reportProgress);
 
+    // Send info on completed mapchange.
+    var sendMapchangeComplete = (result) => {
+        ws.send(`{ "type": "mapchange", "payload": { "completed": ${result == 'success'} } }`);
+        state.operationPending = false;
+    }
     /**
-     * Listens for Websocket to close and removes listener on serverInfo.
+     * Listens for completion of a mapchange.
+     * @listens mapChangeEmitter#completed
+     */
+     mapChangeEmitter.on('result', sendMapchangeComplete);
+
+    /**
+     * Listens for Websocket to close and removes listeners.
      * @listens ws#close
      */
     ws.on('close', (code, reason) => {
         serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
         updateEmitter.removeListener('progress', reportProgress);
+        mapChangeEmitter.removeListener('result', sendMapchangeComplete);
     });
 });
 
@@ -417,7 +467,7 @@ receiver.on('data', (data) => {
             let mapstring = matches[1];
             mapstring = cutMapName(mapstring);
             serverInfo.map = mapstring;
-            mapChangeEmitter.emit('completed');
+            mapChangeEmitter.emit('result', 'success');
             console.log(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
             serverInfo.newMatch();
