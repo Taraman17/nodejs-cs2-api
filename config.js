@@ -75,6 +75,13 @@ module.exports = class config {
         return this._userOptions.host;
     }
 
+    get apiPort (){
+        return this._userOptions.apiPort;
+    }
+    get socketPort (){
+        return this._userOptions.socketPort;
+    }
+
     get serverCommandline () {
         return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
     }
