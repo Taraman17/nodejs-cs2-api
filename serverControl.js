@@ -1,10 +1,12 @@
-/**
+0/**
  * @file CS:GO Dedicated Server Control
  * @author Markus Adrario <mozilla@adrario.de>
- * @version 0.4
+ * @version 0.6
  * @requires rcon-srcds
  * @requires srcds-log-receiver
+ * @requires express
  * @requires http
+ * @requires https
  * @requires ws
  * @requires url
  * @requires events
@@ -16,7 +18,8 @@
 
 const rcon = require('rcon-srcds');
 const logReceiver = require('srcds-log-receiver');
-const webSocket = require('ws')
+const express = require('express');
+const webSocket = require('ws');
 const url = require('url');
 const fs = require('fs');
 const events = require('events');
@@ -42,16 +45,16 @@ var serverInfo = new si();
 var cfg = new config();
 var localIP = require('local-ip')(cfg.iface);
 var http = undefined;
-var httpOptions = {};
+var httpsCredentials = {};
 // if configured for https, we fork here.
 if (cfg.useHttps) {
     http = require('https');
-    httpOptions = { 
+    httpsCredentials = { 
         key: fs.readFileSync(cfg.httpsPrivateKey),
         cert: fs.readFileSync(cfg.httpsCertificate),
     };
     if (cfg.httpsCa != '') {
-        httpOptions.ca = fs.readFileSync(cfg.httpsCa)
+        httpsCredentials.ca = fs.readFileSync(cfg.httpsCa)
     }
 } else {
     http = require('http');
@@ -70,7 +73,7 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
 });
 
 
-// EventEmitter
+// Event Emitters
 var mapChangeEmitter = new events.EventEmitter();
 /**
  * Mapchange completed event.
@@ -168,286 +171,294 @@ function executeRcon (message) {
 
 /*----------------- HTTP Server Code -------------------*/
 /**
- * Creates a http server to communicate with a webInteraface.
+ * Creates an express server to handle the API requests
  */
-http.createServer(httpOptions, (req, res) => {
-    var myUrl = url.parse(req.url, true);
+const app = express();
+app.disable('x-powered-by');
 
-    // Process "control" messages.
-    if (myUrl.pathname == "/control") {
-        var args = myUrl.query;
-        res.setHeader("Access-Control-Allow-Origin", "*");
+// Process "control" messages.
+app.get("/control", (req, res) => {
+    var args = req.query;
+    res.setHeader("Access-Control-Allow-Origin", "*");
 
-        // Start Server
-        if (args.action == "start" && !state.serverRunning && !state.operationPending) {
-            state.operationPending = true;
-            console.log('starting server.');
-            let startMap = args.startmap || "de_dust2";
-            let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
-            var serverProcess = exec(commandLine, function(error, stdout, stderr) {
-                if (error) {
-                    // node couldn't execute the command.
-                    res.writeHeader(200, {"Content-Type": "application/json"});
-                    res.write('{ "success": false }');
-                    res.end();
-                    console.log('Error Code: '+error.code);
-                    console.log('Signal received: '+error.signal);
-                    console.log(stderr);
-                    state.serverRunning = false;
-                    state.operationPending = false;
-                } else {
-                    console.log('screen started');
-                    authEmitter.once('authenticated', () => {
-                        res.writeHeader(200, {"Content-Type": "application/json"});
-                        res.write(`{ "success": true }`);
-                        res.end();
-                    });
-                    state.serverRunning = true;
-                    state.operationPending = false;
-                }
-            });
-
-        // Stop Server
-        } else if (args.action == "stop" && !state.operationPending) {
-            state.operationPending = true;
-            console.log("sending quit.");
-            executeRcon('quit').then((answer) => {
+    // Start Server
+    if (args.action == "start" && !state.serverRunning && !state.operationPending) {
+        state.operationPending = true;
+        console.log('starting server.');
+        let startMap = args.startmap || "de_dust2";
+        let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
+        var serverProcess = exec(commandLine, function(error, stdout, stderr) {
+            if (error) {
+                // node couldn't execute the command.
+                res.writeHeader(200, {"Content-Type": "application/json"});
+                res.write('{ "success": false }');
+                res.end();
+                console.log('Error Code: '+error.code);
+                console.log('Signal received: '+error.signal);
+                console.log(stderr);
                 state.serverRunning = false;
-                state.authenticated = false;
-                res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "success": ${!state.serverRunning} }`);
-                res.end();
                 state.operationPending = false;
-            }).catch((err) => {
-                console.log('Stopping server Failed: ' + err);
-                res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "success": ${!state.serverRunning} }`);
-                res.end();
-                state.operationPending = false;
-            });
-
-        //Update Server
-        } else if (args.action == "update" && !state.updating && !state.running && !state.operationPending) {
-            state.operationPending = true;
-            let updateSuccess = false;
-            console.log('Updating Server.');
-            let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
-            updateProcess.on('data', (data) => {
-                console.log(data);
-                if (data.indexOf('Update state (0x') != -1) {
-                    let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,2})\.\d{2}/;
-                    let matches = rex.exec(data);
-                    updateEmitter.emit('progress', matches[1], matches[2]);
-                } else if (data.indexOf('Success!') != -1) {
-                    console.log('update succeeded');
-                    updateSuccess = true;
-                    state.operationPending = false;
-                }
-            });
-            updateProcess.once('close', (code) => {
-                res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "success": ${updateSuccess} }`);
-                res.end();
-                updateProcess.removeAllListeners();
-                state.operationPending = false;
-            });
-
-        // Send Status
-        } else if (args.action == "status") {
-            res.writeHeader(200, {"Content-Type": "application/json"});
-            res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
-            res.end();
-
-        //change map
-        } else if (args.action == "changemap" && !state.operationPending) {
-            state.operationPending = true;
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.writeHeader(200, { 'Content-Type': 'application/json' });
-            // only try to change map, if it exists on the server.
-            if (serverInfo.mapsAvail.includes(args.map)) {
-                executeRcon(`map ${args.map}`).then((answer) => {
-                    if (!cfg.webSockets) {
-                        // If the mapchange completed event is fired, send success and cancel timeout.
-                        var sendCompleted = (result) => {
-                            res.write(`{ "success": ${result == 'success'} }`);
-                            res.end();
-                            clearTimeout(mapchangeTimeout);
-                            state.operationPending = false;
-                        };
-                        mapChangeEmitter.once('result', sendCompleted);
-
-                        // A mapchange should not take longer than 30 sec.
-                        let mapchangeTimeout = setTimeout( () => {
-                            mapChangeEmitter.emit('result', 'timeout');
-                            res.write(`{ "success": false }`);
-                            res.end();
-                            state.operationPending = false;
-                        }, 30000);
-                    } else {
-                        res.write(`{ "success": true }`);
-                        res.end();
-                        // If the mapchange is successful, cancel the timeout.
-                        var removeTimeout = (result) => {
-                            clearTimeout(mapchangeTimeout);
-                            state.operationPending = false;
-                        };
-                        mapChangeEmitter.once('result', removeTimeout);
-
-                        // A mapchange should not take longer than 30 sec.
-                        let mapchangeTimeout = setTimeout( () => {
-                            mapChangeEmitter.emit('result', 'timeout');
-                            state.operationPending = false;
-                        }, 30000);
-                    }
-                }).catch((err) => {
-                    res.write(`{ "success": false }`);
-                    res.end();
-                    state.operationPending = false;
-                });
             } else {
+                console.log('screen started');
+                authEmitter.once('authenticated', () => {
+                    res.writeHeader(200, {"Content-Type": "application/json"});
+                    res.write(`{ "success": true }`);
+                    res.end();
+                });
+                state.serverRunning = true;
+                state.operationPending = false;
+            }
+        });
+
+    // Stop Server
+    } else if (args.action == "stop" && !state.operationPending) {
+        state.operationPending = true;
+        console.log("sending quit.");
+        executeRcon('quit').then((answer) => {
+            state.serverRunning = false;
+            state.authenticated = false;
+            res.writeHeader(200, {"Content-Type": "application/json"});
+            res.write(`{ "success": ${!state.serverRunning} }`);
+            res.end();
+            state.operationPending = false;
+        }).catch((err) => {
+            console.log('Stopping server Failed: ' + err);
+            res.writeHeader(200, {"Content-Type": "application/json"});
+            res.write(`{ "success": ${!state.serverRunning} }`);
+            res.end();
+            state.operationPending = false;
+        });
+
+    //Update Server
+    } else if (args.action == "update" && !state.updating && !state.running && !state.operationPending) {
+        state.operationPending = true;
+        let updateSuccess = false;
+        console.log('Updating Server.');
+        let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
+        updateProcess.on('data', (data) => {
+            console.log(data);
+            if (data.indexOf('Update state (0x') != -1) {
+                let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,2})\.\d{2}/;
+                let matches = rex.exec(data);
+                updateEmitter.emit('progress', matches[1], matches[2]);
+            } else if (data.indexOf('Success!') != -1) {
+                console.log('update succeeded');
+                updateSuccess = true;
+                state.operationPending = false;
+            }
+        });
+        updateProcess.once('close', (code) => {
+            res.writeHeader(200, {"Content-Type": "application/json"});
+            res.write(`{ "success": ${updateSuccess} }`);
+            res.end();
+            updateProcess.removeAllListeners();
+            state.operationPending = false;
+        });
+
+    // Send Status
+    } else if (args.action == "status") {
+        res.writeHeader(200, {"Content-Type": "application/json"});
+        res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
+        res.end();
+
+    //change map
+    } else if (args.action == "changemap" && !state.operationPending) {
+        state.operationPending = true;
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHeader(200, { 'Content-Type': 'application/json' });
+        // only try to change map, if it exists on the server.
+        if (serverInfo.mapsAvail.includes(args.map)) {
+            executeRcon(`map ${args.map}`).then((answer) => {
+                if (!cfg.webSockets) {
+                    // If the mapchange completed event is fired, send success and cancel timeout.
+                    var sendCompleted = (result) => {
+                        res.write(`{ "success": ${result == 'success'} }`);
+                        res.end();
+                        clearTimeout(mapchangeTimeout);
+                        state.operationPending = false;
+                    };
+                    mapChangeEmitter.once('result', sendCompleted);
+
+                    // A mapchange should not take longer than 30 sec.
+                    let mapchangeTimeout = setTimeout( () => {
+                        mapChangeEmitter.emit('result', 'timeout');
+                        res.write(`{ "success": false }`);
+                        res.end();
+                        state.operationPending = false;
+                    }, 30000);
+                } else {
+                    res.write(`{ "success": true }`);
+                    res.end();
+                    // If the mapchange is successful, cancel the timeout.
+                    var removeTimeout = (result) => {
+                        clearTimeout(mapchangeTimeout);
+                        state.operationPending = false;
+                    };
+                    mapChangeEmitter.once('result', removeTimeout);
+
+                    // A mapchange should not take longer than 30 sec.
+                    let mapchangeTimeout = setTimeout( () => {
+                        mapChangeEmitter.emit('result', 'timeout');
+                        state.operationPending = false;
+                    }, 30000);
+                }
+            }).catch((err) => {
                 res.write(`{ "success": false }`);
                 res.end();
                 state.operationPending = false;
-            }
-
-        // DEPRECATED - will be removed in future release, do not use.
-        // follow mapchange
-        } else if (args.action == "mapstart") {
-            mapChangeEmitter.once('result', (result) => {
-                res.writeHeader(200, {"Content-Type": "application/json"});
-                res.write(`{ "completed": ${result == 'success'} }`);
-                res.end();
             });
+        } else {
+            res.write(`{ "success": false }`);
+            res.end();
+            state.operationPending = false;
         }
 
-    // Process "authenticate" message.
-    } else if (myUrl.pathname == "/authenticate") {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.writeHeader(200, {"Content-Type": "application/json"});
-        authenticate().then((data) => {
-            res.write(data);
-            res.end();
-        }).catch((err) => {
-            res.write(data);
+    // DEPRECATED - will be removed in future release, do not use.
+    // follow mapchange
+    } else if (args.action == "mapstart") {
+        mapChangeEmitter.once('result', (result) => {
+            res.writeHeader(200, {"Content-Type": "application/json"});
+            res.write(`{ "completed": ${result == 'success'} }`);
             res.end();
         });
+    }
+});
+
+// Process "authenticate" message.
+app.get("/authenticate", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.writeHeader(200, {"Content-Type": "application/json"});
+    authenticate().then((data) => {
+        res.write(data);
+        res.end();
+    }).catch((err) => {
+        res.write(data);
+        res.end();
+    });
+});
 
     // Process rcon requests
-    } else if (myUrl.pathname == "/rcon") {
-        var message = myUrl.query.message;
-        executeRcon(message).then((answer) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.writeHeader(200, { 'Content-Type': 'text/plain' });
-            res.write(answer);
-            res.end();
-        }).catch( (err) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.writeHeader(200, { 'Content-Type': 'text/plain' });
-            res.write("Error: " + err);
-            res.end();
-        });
-
-    // Process serverData request
-    } else if (myUrl.pathname == "/serverInfo") {
-        console.log('Processing Serverinfo request.');
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.writeHeader(200, {"Content-Type": "application/json"});
-        if (state.authenticated) {
-            res.write(JSON.stringify(serverInfo.getAll()));
-            res.end();
-        } else {
-            res.write('{ "error": true }');
-            res.end();
-        }
-    } else {
+app.get("/rcon", (req, res) => {
+    var message = req.query.message;
+    executeRcon(message).then((answer) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHeader(200, { 'Content-Type': 'text/plain' });
-        res.write('command ignored');
+        res.write(answer);
+        res.end();
+    }).catch( (err) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHeader(200, { 'Content-Type': 'text/plain' });
+        res.write("Error: " + err);
+        res.end();
+    });
+});
+
+// Process serverData request
+app.get("/serverInfo", (req, res) => {
+    console.log('Processing Serverinfo request.');
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.writeHeader(200, {"Content-Type": "application/json"});
+    if (state.authenticated) {
+        res.write(JSON.stringify(serverInfo.getAll()));
+        res.end();
+    } else {
+        res.write('{ "error": true }');
+        res.end();
     }
-}).listen(8090);
+});
+
+if (cfg.useHttps) {
+    var server = http.createServer(httpsCredentials, app);
+} else {
+    var server = http.createServer(app);
+}
+
+server.listen(cfg.apiPort);
 
 /*----------------- WebSockets Code -------------------*/
-const wssServer = http.createServer(httpOptions);
-const wss = new webSocket.Server({ server: wssServer });
+if (cfg.webSockets) {
+    const wssServer = http.createServer(httpsCredentials);
+    const wss = new webSocket.Server({ server: wssServer });
 
-/**
- * Websocket to send data updates to a webClient.
- */
-wss.on('connection', (ws) => {
-    // Helper function to send ServerInfo to client.
     /**
-     * Sends updated serverInfo to clients.
+     * Websocket to send data updates to a webClient.
      */
-    var sendUpdate = () => {
-        ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
-    }
+    wss.on('connection', (ws) => {
+        // Helper function to send ServerInfo to client.
+        /**
+         * Sends updated serverInfo to clients.
+         */
+        var sendUpdate = () => {
+            ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+        }
 
-    // React to requests.
-    /**
-     * Listens for messages on Websocket.
-     * @listens ws#message
-     */
-    ws.on('message', (message) => {
-        if (message.search("infoRequest") != -1) {
-            sendUpdate();
-            //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+        // React to requests.
+        /**
+         * Listens for messages on Websocket.
+         * @listens ws#message
+         */
+        ws.on('message', (message) => {
+            if (message.search("infoRequest") != -1) {
+                sendUpdate();
+                //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
+            }
+        });
+
+        /**
+         * Listens for changed serverInfo and calls function to forward them.
+         * @listens serverInfo.serverInfoChanged#change
+         */
+        serverInfo.serverInfoChanged.on('change', sendUpdate);
+
+        // Report update progress to clients.
+        var reportProgress = (action, progress) => {
+            ws.send(`{ "type": "updateProgress", "payload": { "step": "${action}", "progress": ${progress} } }`);
+        }
+        /**
+         * Listens for progress reporst from update process and sends them to the client.
+         * @listens updateEmitter#progress
+         */
+        updateEmitter.on('progress', reportProgress);
+
+        // Send info on completed mapchange.
+        var sendMapchangeComplete = (result) => {
+            ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
+            state.operationPending = false;
+        }
+        /**
+         * Listens for completion of a mapchange.
+         * @listens mapChangeEmitter#completed
+         */
+         mapChangeEmitter.on('result', sendMapchangeComplete);
+
+        /**
+         * Listens for Websocket to close and removes listeners.
+         * @listens ws#close
+         */
+        ws.on('close', (code, reason) => {
+            serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
+            updateEmitter.removeListener('progress', reportProgress);
+            mapChangeEmitter.removeListener('result', sendMapchangeComplete);
+        });
+    });
+
+    wssServer.listen(cfg.socketPort, () => {
+        let host = '';
+        if (cfg.host != '') {
+            host = cfg.host;
+            console.log(cfg.host);
+        } else {
+            host = localIP;
+            console.log(localIP);
+        }
+
+        if(cfg.useHttps) {
+            const ws = new webSocket(`wss://${host}:${wssServer.address().port}`);
+        } else {
+            const ws = new webSocket(`ws://${host}:${wssServer.address().port}`);
         }
     });
-
-    /**
-     * Listens for changed serverInfo and calls function to forward them.
-     * @listens serverInfo.serverInfoChanged#change
-     */
-    serverInfo.serverInfoChanged.on('change', sendUpdate);
-
-    // Report update progress to clients.
-    var reportProgress = (action, progress) => {
-        ws.send(`{ "type": "updateProgress", "payload": { "step": "${action}", "progress": ${progress} } }`);
-    }
-    /**
-     * Listens for progress reporst from update process and sends them to the client.
-     * @listens updateEmitter#progress
-     */
-    updateEmitter.on('progress', reportProgress);
-
-    // Send info on completed mapchange.
-    var sendMapchangeComplete = (result) => {
-        ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
-        state.operationPending = false;
-    }
-    /**
-     * Listens for completion of a mapchange.
-     * @listens mapChangeEmitter#completed
-     */
-     mapChangeEmitter.on('result', sendMapchangeComplete);
-
-    /**
-     * Listens for Websocket to close and removes listeners.
-     * @listens ws#close
-     */
-    ws.on('close', (code, reason) => {
-        serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
-        updateEmitter.removeListener('progress', reportProgress);
-        mapChangeEmitter.removeListener('result', sendMapchangeComplete);
-    });
-});
-
-wssServer.listen(8091, () => {
-    let host = '';
-    if (cfg.host != '') {
-        host = cfg.host;
-        console.log(cfg.host);
-    } else {
-        host = localIP;
-        console.log(localIP);
-    }
-
-    if(cfg.useHttps) {
-        const ws = new webSocket(`wss://${host}:${wssServer.address().port}`);
-    } else {
-        const ws = new webSocket(`ws://${host}:${wssServer.address().port}`);
-    }
-});
+}
 
 /*----------------- log receiving code --------------------*/
 // Since we only control locally installed servers and server logging is not working on

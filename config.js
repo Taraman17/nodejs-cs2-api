@@ -14,8 +14,12 @@ module.exports = class config {
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
+            // Port, the webserver for API calls listens on
+            'apiPort': 8090,
             // set to true if you use Websockets for status updates
             'webSockets': false,
+            // Port, the websocket is listening on
+            'socketPort': 8091,
             // https settings
             'useHttps': false,
             // Optional: If you use https, add the path to the certificate files here.
