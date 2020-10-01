@@ -72,6 +72,21 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
     }
 });
 
+/**
+ * Get available maps from server and store them in serverInfo
+ */
+function updateMaps() {
+    executeRcon('maps *').then((answer) => {
+        let re = /\(fs\) (\S+).bsp/g;
+        let maplist = [];
+        let mapsArray = getMatches(answer, re, 1);
+        mapsArray.forEach((mapString) => {
+            maplist.push(cutMapName(mapString));
+        });
+        maplist.sort();
+        serverInfo.mapsAvail = maplist;
+    });
+}
 
 // Event Emitters
 var mapChangeEmitter = new events.EventEmitter();
@@ -108,7 +123,10 @@ authEmitter.on('authenticated', () => {
         let mapstring = matches[1];
         serverInfo.map = cutMapName(mapstring);
     });
-    executeRcon('maps *').then((answer) => {
+    updateMaps();
+    // execution continues here, so a very quick serverInfo request after
+    // authentication might not bear the maps.
+    /* executeRcon('maps *').then((answer) => {
         let re = /\(fs\) (\S+).bsp/g;
         let maplist = [];
         let mapsArray = getMatches(answer, re, 1);
@@ -117,7 +135,7 @@ authEmitter.on('authenticated', () => {
         });
         maplist.sort();
         serverInfo.mapsAvail = maplist;
-    });
+    }); */
 });
 
 
@@ -321,6 +339,10 @@ app.get("/control", (req, res) => {
             res.write(`{ "completed": ${result == 'success'} }`);
             res.end();
         });
+
+    // Update Maps available on server
+    } else if (args.action == "updatemaps") {
+        updateMaps();
     }
 });
 
@@ -400,7 +422,6 @@ if (cfg.webSockets) {
         ws.on('message', (message) => {
             if (message.search("infoRequest") != -1) {
                 sendUpdate();
-                //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
             }
         });
 
