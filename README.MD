@@ -9,7 +9,7 @@ Authentication is the next todo on my list.
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver node-pty ws 
+npm install --save rcon-srcds srcds-log-receiver express node-pty ws 
 ```
 
 ## Configuration
@@ -32,7 +32,7 @@ node serverControl.js
 Then use the following GET Messages to control the server. If you have certificates configured, you can also use https:// (These examples assume usage of jquery):
 ### Server Control
 ```javascript
-$.get('http://your-servers-address:8090/control', 'action=status')
+$.get('http://<your-servers-address>:<your-port>/control', 'action=status')
 ```
 The /control message will return a JSON-String.
 'action' can have the following values:
@@ -50,19 +50,19 @@ If you use websockets, answer will be { "success": true/false } if the rcon comm
 
 ### RCON
 ```javascript
-$.get('http://your-servers-address:8090/rcon', 'message=command')
+$.get('http://<your-servers-address>:<your-port>/rcon', 'message=command')
 ```
 'command' is the command as you would enter it in the servers console.
 Answer is the response as string.
 
 ### Server Info
 ```javascript
-$.get('http://your-servers-address:8090/serverInfo')
+$.get('http://<your-servers-address>:<your-port>/serverInfo')
 ```
 Gets information on the server as JSON-String. See serverInfo.js for available data.
 
 ## Information Updates via WebSocket
-A websocket is available on port 8091 to receive further information.
+A websocket is available a configurable port to receive further information.
 Currently avialable are update-progress, ServerInfo as any value changes and completion of mapchange (on start of new map).
 
 ServerInfo message looks as follows:
@@ -75,3 +75,9 @@ UpdateProgress looks as follows:
 ```javascript
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
+
+mapchange message:
+```javascript
+{ "type": "mapchange", "payload": { "success": true/false }
+```
+false is sent after a 30 sec. timeout when no "Started map" log has been received.
