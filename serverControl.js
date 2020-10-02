@@ -5,6 +5,7 @@
  * @requires rcon-srcds
  * @requires srcds-log-receiver
  * @requires express
+ * @requires express-rate-limit
  * @requires http
  * @requires https
  * @requires ws
@@ -19,6 +20,7 @@
 const rcon = require('rcon-srcds');
 const logReceiver = require('srcds-log-receiver');
 const express = require('express');
+const rateLimit = require("express-rate-limit");
 const webSocket = require('ws');
 const url = require('url');
 const fs = require('fs');
@@ -174,6 +176,12 @@ function executeRcon (message) {
  * Creates an express server to handle the API requests
  */
 const app = express();
+const limit = rateLimit({
+    max: 20,// max requests
+    windowMs: 60 * 1000, // 1 Minute
+    message: 'Too many requests' // message to send
+});
+app.use(limit);
 app.disable('x-powered-by');
 
 // Process "control" messages.
@@ -185,7 +193,13 @@ app.get("/control", (req, res) => {
     if (args.action == "start" && !state.serverRunning && !state.operationPending) {
         state.operationPending = true;
         console.log('starting server.');
-        let startMap = args.startmap || "de_dust2";
+        let startMap =  "de_dust2";
+        const safe = /^[a-zA-Z0-9-_]*$/;
+        if (!safe.test(args.startmap)) {
+            console.log (`Supplied mapname ${args.startmap} is not safe, using de_dust2`);
+        } else {
+            startMap = args.startmap;
+        }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
         var serverProcess = exec(commandLine, function(error, stdout, stderr) {
             if (error) {
@@ -348,8 +362,9 @@ app.get("/rcon", (req, res) => {
     }).catch( (err) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHeader(200, { 'Content-Type': 'text/plain' });
-        res.write("Error: " + err);
+        res.write("Error, check console for details");
         res.end();
+        console.log (err);
     });
 });
 
