@@ -74,6 +74,31 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
     }
 });
 
+/**
+ * Get available maps from server and store them in serverInfo
+ * @returns {Promise<JSON-string>} - Promise object that yields the result of reload.
+ */
+function reloadMaplist() {
+    return new Promise((resolve, reject) => {
+        executeRcon('maps *').then((answer) => {
+            let re = /\(fs\) (\S+).bsp/g;
+            let maplist = [];
+            let mapsArray = getMatches(answer, re, 1);
+            mapsArray.forEach((mapString) => {
+                maplist.push(cutMapName(mapString));
+            });
+            maplist.sort();
+            if (maplist.length > 0) {
+                serverInfo.mapsAvail = maplist;
+                resolve(`{ "sucess": true }`);
+            } else {
+                resolve(`{ "sucess": false }`);
+            }
+        }).catch((err) => {
+            resolve(`{ "sucess": false }`);
+        });
+    });
+}
 
 // Event Emitters
 var mapChangeEmitter = new events.EventEmitter();
@@ -110,7 +135,12 @@ authEmitter.on('authenticated', () => {
         let mapstring = matches[1];
         serverInfo.map = cutMapName(mapstring);
     });
-    executeRcon('maps *').then((answer) => {
+    reloadMaplist().then((answer) => {
+        if (answer == '{ "sucess": false }') {
+            console.log ("Maps could not be loaded");
+        }
+    });
+    /* executeRcon('maps *').then((answer) => {
         let re = /\(fs\) (\S+).bsp/g;
         let maplist = [];
         let mapsArray = getMatches(answer, re, 1);
@@ -119,13 +149,13 @@ authEmitter.on('authenticated', () => {
         });
         maplist.sort();
         serverInfo.mapsAvail = maplist;
-    });
+    }); */
 });
 
 
 /**
  * Authenticate rcon with server
- * @returns {Promise<JSON-string>}- Promise object that yields the result of authentication.
+ * @returns {Promise<JSON-string>} - Promise object that yields the result of authentication.
  * @emits authEmitter.authenticated
  */
 function authenticate() {
@@ -335,6 +365,15 @@ app.get("/control", (req, res) => {
             res.write(`{ "completed": ${result == 'success'} }`);
             res.end();
         });
+
+    // Update Maps available on server
+    } else if (args.action == "reloadmaplist") {
+        reloadMaplist().then( (answer) => {
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.writeHeader(200, { 'Content-Type': 'application/json' });
+            res.write(answer);
+            res.end();
+        });
     }
 });
 
@@ -415,7 +454,6 @@ if (cfg.webSockets) {
         ws.on('message', (message) => {
             if (message.search("infoRequest") != -1) {
                 sendUpdate();
-                //ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
             }
         });
 

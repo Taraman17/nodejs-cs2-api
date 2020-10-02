@@ -38,7 +38,7 @@ The /control message will return a JSON-String.
 'action' can have the following values:
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
-- start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }<br>
+- start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }
 If run without startmap, server will be started with famous de_dust2.
 - changemap -> additional argument "map" (action=changemap&map=mapname): 
 If you do not use websockets, the answer will be { "success": true/false }. true if start of new map is logged, false in case of error or after a timeout of 30 seconds.
@@ -46,6 +46,7 @@ If you use websockets, answer will be { "success": true/false } if the rcon comm
 ```javascript
 { "type": "mapchange", "payload": { "success": true/false } }
 ```
+- reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
 - stop -> stop the server: { "success": true/false }
 
 ### RCON
