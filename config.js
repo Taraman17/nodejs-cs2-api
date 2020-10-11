@@ -1,5 +1,5 @@
 ﻿/**
- * Config class for SCGO Server API
+ * Config class for CSGO Server API
  */
 module.exports = class config {
     constructor () {
@@ -14,6 +14,10 @@ module.exports = class config {
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
+            // SteamID64 of Users who are allowed to control the server
+            'admins': [],
+            // Time in minutes, after which a new login is needed
+            'loginValidity': 300,
             // Port, the webserver for API calls listens on
             'apiPort': 8090,
             // set to true if you use Websockets for status updates
@@ -63,53 +67,64 @@ module.exports = class config {
         this.csgoArgs = `-game csgo -console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
     }
 
-    get rconPass () {
+    get rconPass() {
         return this._userOptions.rconPass;
     }
 
-    get iface () {
+     get admins() {
+         return this._userOptions.admins;
+     }
+
+    get loginValidity() {
+        return this._userOptions.loginValidity * 60000;
+    }
+
+    get iface() {
         return this._userOptions.iface;
     }
 
-    get host () {
+    get host() {
         return this._userOptions.host;
     }
 
-    get apiPort (){
+    get apiPort(){
         return this._userOptions.apiPort;
     }
-    get socketPort (){
+    get socketPort(){
         return this._userOptions.socketPort;
     }
 
-    get serverCommandline () {
+    get serverCommandline() {
         return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
     }
-    get updateCommand () {
+    get updateCommand() {
         return this._userOptions.steamExe
     }
-    get updateArguments () {
+    get updateArguments() {
         return [`+login ${this._userOptions.steamAccount}`,
                 `+runscript ${this._userOptions.updateScript}`];
     }
 
-    get webSockets () {
+    get webSockets() {
         return this._userOptions.webSockets;
     }
-    get useHttps () {
+    get useHttps() {
         return this._userOptions.useHttps;
     }
-    get httpsCertificate () {
+    get scheme() {
+        return (this._userOptions.useHttps ? 'https' : 'http');
+    }
+    get httpsCertificate() {
         return this._userOptions.httpsCertificate;
     }
-    get httpsPrivateKey () {
+    get httpsPrivateKey() {
         return this._userOptions.httpsPrivateKey;
     }
-    get httpsCa () {
+    get httpsCa() {
         return this._userOptions.httpsCa;
     }
 
-    script (type) {
+    script(type) {
         return this._userOptions[`${type}Script`];
     }
 };

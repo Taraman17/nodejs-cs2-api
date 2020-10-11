@@ -9,7 +9,7 @@ Authentication is the next todo on my list.
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver express node-pty ws 
+npm install --save rcon-srcds srcds-log-receiver express express-session passport passport-steam node-pty ws 
 ```
 
 ## Configuration

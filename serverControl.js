@@ -5,7 +5,10 @@
  * @requires rcon-srcds
  * @requires srcds-log-receiver
  * @requires express
+ * @requires express-session
  * @requires express-rate-limit
+ * @requires passport
+ * @requires passport-steam
  * @requires http
  * @requires https
  * @requires ws
@@ -20,7 +23,10 @@
 const rcon = require('rcon-srcds');
 const logReceiver = require('srcds-log-receiver');
 const express = require('express');
-const rateLimit = require("express-rate-limit");
+const session = require('express-session');
+const rateLimit = require('express-rate-limit');
+const passport = require('passport');
+const SteamStrategy = require('passport-steam').Strategy;
 const webSocket = require('ws');
 const url = require('url');
 const fs = require('fs');
@@ -202,6 +208,36 @@ function executeRcon (message) {
 
 
 /*----------------- HTTP Server Code -------------------*/
+// Setup Passport for SteamStrategy
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
+
+passport.use(
+    new SteamStrategy({
+        returnURL: `${cfg.scheme}://${cfg.host}:${cfg.apiPort}/login/return`,
+        realm: `${cfg.scheme}://${cfg.host}:${cfg.apiPort}/`,
+        profile: false
+    },
+    (identifier, profile, done) => {
+        process.nextTick(function () {
+
+          let steamID64 = identifier.split('/')[5];
+          profile.identifier = steamID64;
+          return done(null, profile);
+        });
+    }
+));
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated() && cfg.admins.includes(req.user.identifier)) {
+        return next();
+    }
+    res.redirect('/loginStatus');
+}
+
 /**
  * Creates an express server to handle the API requests
  */
@@ -212,10 +248,53 @@ const limit = rateLimit({
     message: 'Too many requests' // message to send
 });
 app.use(limit);
+app.use(session({
+    secret: 'nodejs-csgo-api',
+    name: `csgo-api-${cfg.host}`,
+    cookie: {
+        expires: cfg.loginValidity,
+        secure: cfg.useHttps
+    },
+    resave: true,
+    saveUninitialized: true
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.disable('x-powered-by');
 
+// Handle authentication.
+app.get('/login',
+    passport.authenticate('steam', { failureRedirect: '/loginStatus' }),
+    (req, res) => {
+        res.redirect('/loginStatus');
+    }
+);
+app.get('/login/return',
+    passport.authenticate('steam', { failureRedirect: '/loginStatus' }),
+    (req, res) => {
+        res.redirect('/loginStatus');
+    }
+);
+app.get('/logout', (req, res) => {
+    req.logout();
+    res.redirect('/loginStatus');
+});
+
+// Return the current login status
+app.get("/loginStatus", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.writeHeader(200, {"Content-Type": "application/json"});
+    if(req.user) {
+        res.write('{ "login": true }');
+    } else {
+        res.write('{ "login": false }');
+    }
+    res.end();
+});
+
 // Process "control" messages.
-app.get("/control", (req, res) => {
+app.get("/control", ensureAuthenticated, (req, res) => {
     var args = req.query;
     res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -378,7 +457,7 @@ app.get("/control", (req, res) => {
 });
 
 // Process "authenticate" message.
-app.get("/authenticate", (req, res) => {
+app.get("/authenticate", ensureAuthenticated, (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.writeHeader(200, {"Content-Type": "application/json"});
     authenticate().then((data) => {
@@ -390,8 +469,8 @@ app.get("/authenticate", (req, res) => {
     });
 });
 
-    // Process rcon requests
-app.get("/rcon", (req, res) => {
+// Process rcon requests
+app.get("/rcon", ensureAuthenticated, (req, res) => {
     var message = req.query.message;
     executeRcon(message).then((answer) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
@@ -408,7 +487,7 @@ app.get("/rcon", (req, res) => {
 });
 
 // Process serverData request
-app.get("/serverInfo", (req, res) => {
+app.get("/serverInfo", ensureAuthenticated, (req, res) => {
     console.log('Processing Serverinfo request.');
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.writeHeader(200, {"Content-Type": "application/json"});
