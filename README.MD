@@ -1,10 +1,9 @@
 # CS:GO Server Control with a Nodejs-powered web-API
 
 ## Disclaimer
-As of now, this script should only be used on private servers not accessible from the internet.
-It allows control of the the Server and as of now has no built in Authentication. So basically everyone could takeover your server.
-
-Authentication is the next todo on my list.
+The use of this software is at your own risk.
+It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
+I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
 ## Install
 download the script files to and install the dependencies for nodejs
