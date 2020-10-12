@@ -1,0 +1,237 @@
+﻿body {
+    background-color: #000000;
+    color: #DB4913;
+}
+p {
+    margin-top: 0px;
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+.section {
+    border-bottom: 2px solid;
+}
+
+.counter {
+    color: blue;
+}
+.terrorist {
+    color: red;
+}
+
+/* flex layout */
+#header {
+    min-height: 10em;
+    margin-bottom: 10 px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-around;
+}
+#header-text {
+    font-size: 2.5em;
+    text-align: center;
+    flex-grow: 2;
+}
+
+#serverControl {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+}
+#runControl {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+#power-image {
+    margin: 5px 20px;
+    top: 10px;
+}
+#buttonRestart, #buttonStop {
+    display: none;
+}
+#startMap {
+
+}
+
+#serverInfo {
+    display: none;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+#gameInfo {
+    min-width: 300px;
+}
+#scoreT {
+    color: red;
+}
+#scoreCT {
+    color: blue;
+}
+#players {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-width: 300px;
+}
+#players h3 {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-bottom: 10px;
+}
+#players h4 {
+    margin: 10px 0px;
+}
+#playerLists {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+.playerDiv {
+    display: none;
+    min-width: 200px;
+    padding: 0px 5px;
+    margin-bottom: 10px;
+    box-shadow: 0px 0px 5px 2px rgb(100, 100, 100);
+}
+#playerLists ul {
+    list-style-type: none;
+    margin-bottom: 5px;
+    padding-left: 0px;
+}
+#playerLists li {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    margin: 2px;
+    border: 1px solid #333333;
+    text-align: center;
+}
+
+#mapControl {
+    padding-bottom: 10px;
+    display: none;
+}
+#mapSelector {
+    display: none;
+}
+
+.text {
+    text-align: center;
+}
+.label {
+    font-size: 1.2em;
+    text-align: left;
+    margin-left: 3%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+textarea {
+    background-color: #222222;
+    margin-left:10px;
+    margin-top:20px;
+}
+
+input {
+    color: #DB4913;
+    background-color: transparent;
+    border-color: #DB4913;
+    min-height: 35px;
+    font-size: 1.2em;
+    margin-left: 3%;
+    margin-top: 15px;
+}
+input:disabled {
+    color: #DB977E;
+    background: #666666;
+}
+
+select {
+    color: #DB4913;
+    background-color: transparent;
+    font-size: 1em;
+    margin-left: 2em;
+}
+
+#mapSelector ul {
+    width: 100%;
+    list-style-type: none;
+    border: 1px solid;
+    padding: 0;
+}
+#mapSelector li {
+    margin: 10px 1%;
+    padding: 7px;
+    border: 1px solid;
+    font-size: 25px;
+    display: block;
+    min-width: 230px;
+    width: 30%;
+    max-width: 320px;
+    float: left;
+}
+#mapSelector li.active {
+    background-color: #222222;
+    background-image: url(pic/playicon.png);
+    background-repeat: no-repeat;
+    background-position: right;
+    background-size: contain;
+}
+
+/* wait popup */
+.container-popup {
+    display: none;
+    opacity: 0.8;
+}
+.popup {
+    min-width: 400px;
+    width: 60vw;
+    max-width: 800px;
+    min-height: 300px;
+    height: 45vw;
+    max-height: 600px;
+    background: url("pic/ak47.gif") no-repeat center center;
+    background-size: contain;
+    background-color: #d2d2d2;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.ueberschrift {
+    color: yellow;
+    font-size: 2em;
+    text-align: center;
+}
+.unterschrift {
+    color: yellow;
+    font-size: 1.5em;
+    text-align: center;
+}
+
+/* Player Dropdown */
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(200,200,200,0.2);
+    z-index: 1;
+}
+.dropdown-menu p {
+    background-color: #000000;
+    margin: 0;
+    padding: 5px;
+    border: 1px solid;
+}
