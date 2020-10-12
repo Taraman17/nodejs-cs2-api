@@ -110,6 +110,11 @@ mapchange message:
 ```
 false is sent after a 30 sec. timeout when no "Started map" log has been received.
 
+## Example
+An example of a webinterface is available in the folder "example"
+It assumes, that you run it on the same domain as the API. If you want to change that, you can do so in js/gameserver.js (see comment in the file)
+To correctly load the maplist for server start, edit the respective line in gameserver.php.
+
 ## Support
 If you have any questions, contact me.
 If you find any bugs or have feature requests, don't hesitate to open an issue.
