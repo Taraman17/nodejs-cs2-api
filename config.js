@@ -1,5 +1,5 @@
 ﻿/**
- * Config class for SCGO Server API
+ * Config class for CSGO Server API
  */
 module.exports = class config {
     constructor () {
@@ -14,11 +14,18 @@ module.exports = class config {
             'serverToken': '<token>',
             // Well, the rcon password...
             'rconPass': 'YourRconPass',
-            // Port, the webserver for API calls listens on
+            // SteamID64 of Users who are allowed to control the server. For info on SteamID64 see:
+            // https://steamcommunity.com/discussions/forum/1/364039785160857002/
+            'admins': [],
+            // The Page the client is redirected to after login - see README for more info.
+            'redirectPage': '/loginStatus',
+            // Time in minutes, after which a new login is needed.
+            'loginValidity': 300,
+            // Port, the webserver for API calls listens on.
             'apiPort': 8090,
-            // set to true if you use Websockets for status updates
+            // Set to true if you use Websockets for status updates.
             'webSockets': false,
-            // Port, the websocket is listening on
+            // Port, the websocket is listening on.
             'socketPort': 8091,
             // https settings
             'useHttps': false,
@@ -28,14 +35,18 @@ module.exports = class config {
             // Optional: In case your CA is not trusted by default (e.g. letsencrypt), you can add 
             // the CA-Cert here.
             'httpsCa': '',
-            // The folder, where your srcds_run is located
+            // CORS origin setting. '*' is not allowed since login credentials are sent with requests.
+            // For possible values see:
+            // https://expressjs.com/en/resources/middleware/cors.html#configuration-options
+            'corsOrigin': 'localhost',
+            // The folder, where your srcds_run is located.
             'csgoDir': '/home/csgo/csgo_ds',
-            // anything you want your server command line to have additional to:
+            // Anything you want your server command line to have additional to:
             //   -game csgo -console -usercon +sv_setsteamaccount
             'csgoOptionalArgs': '-insecure +sv_lan 1 +sv_pure 0 -ip 0.0.0.0 +mapgroup mg_all',
-            // the path to screen
+            // The path to screen.
             'screen': '/usr/bin/screen',
-            // The name screen will give the process (no spaces allowed)
+            // The name screen will give the process (no spaces allowed).
             'screenName': 'csgoServer',
             // The screen Logfile where the console output of screen and the server will be logged.
             // New logs are appended, so you may need to delete or rotate this log periodically.
@@ -63,53 +74,72 @@ module.exports = class config {
         this.csgoArgs = `-game csgo -console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
     }
 
-    get rconPass () {
+    get rconPass() {
         return this._userOptions.rconPass;
     }
 
-    get iface () {
+     get admins() {
+         return this._userOptions.admins;
+     }
+
+    get redirectPage() {
+        return this._userOptions.redirectPage;
+    }
+
+    get loginValidity() {
+        return this._userOptions.loginValidity * 60000;
+    }
+
+    get iface() {
         return this._userOptions.iface;
     }
 
-    get host () {
+    get host() {
         return this._userOptions.host;
     }
 
-    get apiPort (){
+    get apiPort(){
         return this._userOptions.apiPort;
     }
-    get socketPort (){
+    get socketPort(){
         return this._userOptions.socketPort;
     }
 
-    get serverCommandline () {
+    get serverCommandline() {
         return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
     }
-    get updateCommand () {
+    get updateCommand() {
         return this._userOptions.steamExe
     }
-    get updateArguments () {
+    get updateArguments() {
         return [`+login ${this._userOptions.steamAccount}`,
                 `+runscript ${this._userOptions.updateScript}`];
     }
 
-    get webSockets () {
+    get webSockets() {
         return this._userOptions.webSockets;
     }
-    get useHttps () {
+    get useHttps() {
         return this._userOptions.useHttps;
     }
-    get httpsCertificate () {
+    get scheme() {
+        return (this._userOptions.useHttps ? 'https' : 'http');
+    }
+    get httpsCertificate() {
         return this._userOptions.httpsCertificate;
     }
-    get httpsPrivateKey () {
+    get httpsPrivateKey() {
         return this._userOptions.httpsPrivateKey;
     }
-    get httpsCa () {
+    get httpsCa() {
         return this._userOptions.httpsCa;
     }
 
-    script (type) {
+    get corsOrigin() {
+        return this._userOptions.corsOrigin;
+    }
+
+    script(type) {
         return this._userOptions[`${type}Script`];
     }
 };
