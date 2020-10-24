@@ -243,7 +243,7 @@ const limit = rateLimit({
 });
 app.use(limit);
 app.use(session({
-    secret: 'nodejs-csgo-api',
+    secret: cfg.sessionSecret,
     name: `csgo-api-${cfg.host}`,
     cookie: {
         expires: cfg.loginValidity,
@@ -357,9 +357,13 @@ app.get("/control", ensureAuthenticated, (req, res) => {
         updateProcess.on('data', (data) => {
             console.log(data);
             if (data.indexOf('Update state (0x') != -1) {
-                let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,2})\.\d{2}/;
+                let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,3})\.\d{2}/;
                 let matches = rex.exec(data);
                 updateEmitter.emit('progress', matches[1], matches[2]);
+            } else if (data.indexOf('Downloading update (') != -1) {
+                let rex = /\[(.+)%] Downloading update/;
+                let matches = rex.exec(data);
+                updateEmitter.emit('progress', 'Updating Steam client', matches[1]);
             } else if (data.indexOf('Success!') != -1) {
                 console.log('update succeeded');
                 updateSuccess = true;

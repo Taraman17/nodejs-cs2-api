@@ -39,6 +39,8 @@ module.exports = class config {
             // For possible values see:
             // https://expressjs.com/en/resources/middleware/cors.html#configuration-options
             'corsOrigin': 'localhost',
+            // Change this to any string of your liking to make it harder for attackers to profile your cookies.
+            'sessionSecret': 'nodejs-csgo-api',
             // The folder, where your srcds_run is located.
             'csgoDir': '/home/csgo/csgo_ds',
             // Anything you want your server command line to have additional to:
@@ -137,6 +139,9 @@ module.exports = class config {
 
     get corsOrigin() {
         return this._userOptions.corsOrigin;
+    }
+    get sessionSecret() {
+        return this._userOptions.sessionSecret;
     }
 
     script(type) {
