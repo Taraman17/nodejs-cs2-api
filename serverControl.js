@@ -356,7 +356,15 @@ app.get("/control", ensureAuthenticated, (req, res) => {
         let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
         updateProcess.on('data', (data) => {
             console.log(data);
-            if (data.indexOf('Update state (0x') != -1) {
+            if (data.indexOf('Checking for available updates') != -1) {
+                updateEmitter.emit('progress', 'Checking Steam client updates', 0);
+            } else if (data.indexOf('Verifying installation') != -1) {
+                updateEmitter.emit('progress', 'Verifying client installation', 0);
+            } else if (data.indexOf('Logging in user') != -1) {
+                updateEmitter.emit('progress', 'Logging in steam user', 0);
+            } else if (data.indexOf('Logged in OK') != -1) {
+                updateEmitter.emit('progress', 'Login OK', 100);
+            } else if(data.indexOf('Update state (0x') != -1) {
                 let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,3})\.\d{2}/;
                 let matches = rex.exec(data);
                 updateEmitter.emit('progress', matches[1], matches[2]);
@@ -365,6 +373,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 let matches = rex.exec(data);
                 updateEmitter.emit('progress', 'Updating Steam client', matches[1]);
             } else if (data.indexOf('Success!') != -1) {
+                updateEmitter.emit('progress', 'Update Successful!', 100);
                 console.log('update succeeded');
                 updateSuccess = true;
                 state.operationPending = false;
