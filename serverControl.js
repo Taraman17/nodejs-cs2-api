@@ -369,9 +369,9 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 let matches = rex.exec(data);
                 updateEmitter.emit('progress', matches[1], matches[2]);
             } else if (data.indexOf('Downloading update (') != -1) {
-                let rex = /\[(.+)%] Downloading update/;
+                let rex = /\[(.+)] Downloading update/;
                 let matches = rex.exec(data);
-                updateEmitter.emit('progress', 'Updating Steam client', matches[1]);
+                updateEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
             } else if (data.indexOf('Success!') != -1) {
                 updateEmitter.emit('progress', 'Update Successful!', 100);
                 console.log('update succeeded');
