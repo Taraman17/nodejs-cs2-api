@@ -27,7 +27,7 @@
                    type="button"
                    class="text"
                    value="Update"
-                   onclick="clickButton(this);"/>
+                   onclick="doUpdate(this);"/>
             <input id="buttonStart"
                    type="button"
                    class="text"

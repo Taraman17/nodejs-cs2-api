@@ -354,6 +354,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
         let updateSuccess = false;
         console.log('Updating Server.');
         let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
+
         updateProcess.on('data', (data) => {
             console.log(data);
             if (data.indexOf('Checking for available updates') != -1) {
@@ -379,13 +380,26 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 state.operationPending = false;
             }
         });
-        updateProcess.once('close', (code) => {
+
+        if (cfg.webSockets) {
             res.writeHeader(200, {"Content-Type": "application/json"});
-            res.write(`{ "success": ${updateSuccess} }`);
+            if (updateProcess) {
+                res.write(`{ "success": true }`);
+            } else {
+                res.write(`{ "success": false }`);
+            }
             res.end();
             updateProcess.removeAllListeners();
             state.operationPending = false;
-        });
+        } else {
+            updateProcess.once('close', (code) => {
+                res.writeHeader(200, {"Content-Type": "application/json"});
+                res.write(`{ "success": ${updateSuccess} }`);
+                res.end();
+                updateProcess.removeAllListeners();
+                state.operationPending = false;
+            });
+        }
 
     // Send Status
     } else if (args.action == "status") {
