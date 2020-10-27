@@ -221,6 +221,7 @@ passport.use(
           // Cut the SteamID64 from the returned User-URI
           let steamID64 = identifier.split('/')[5];
           profile.identifier = steamID64;
+          console.log(`User with steamID ${steamID64} logged in`);
           return done(null, profile);
         });
     }
@@ -275,6 +276,7 @@ app.get('/login/return',
     }
 );
 app.get('/logout', (req, res) => {
+    console.log(`User with steamID ${req.user.identifier} logged out`);
     req.logout();
     res.redirect(cfg.redirectPage);
 });
