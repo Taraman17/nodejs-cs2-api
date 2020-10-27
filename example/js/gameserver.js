@@ -68,6 +68,11 @@ $( document ).ready(() => {
             }
         } else if (data.type == "updateProgress") {
             $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
+            if (data.payload.step == 'Update Successful!') {
+                window.setTimeout( () => {
+                    $('.container-popup').css('display', 'none');
+                }, 2000);
+            }
         } else if (data.type == "mapchange") {
             if (data.payload.success) {
                 setupPage('mapchange');
