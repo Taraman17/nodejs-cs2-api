@@ -109,7 +109,7 @@
         <p onclick='movePlayer(event);' command="spec">Move to Spectators</p>
         <p onclick='alert("test");'>Kick from Server</p>
   </div>
-    <script type="text/javascript" src="js/jquery-3.4.1.min.js"></script>
+    <script type="text/javascript" src="js/jquery-3.5.1.min.js"></script>
     <script type="text/javascript" src="js/gameserver.js"></script>
 </body>
 </html>
