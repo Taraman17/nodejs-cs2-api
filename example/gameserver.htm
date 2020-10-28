@@ -2,8 +2,9 @@
 <html>
 <head>
     <title>CS:GO Gameserver</title>
-    <link href="gameserver.css" rel="stylesheet" type="text/css">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <link href="gameserver.css" rel="stylesheet" type="text/css">
 </head>
 
 <body alink="#000099"
@@ -52,13 +53,7 @@
         <div id="startMap" class="label clearfix">
             Starten mit:&nbsp;&nbsp;
             <select id="mapAuswahl">
-    <?php
-            // change path here to load the list of maps to start the server with.
-            $maplist = file("/home/csgo/csgo_ds/csgo/maplist.txt", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            foreach($maplist as $value){ // Loop through each element
-                print("            <option value=".$value.">".$value."</option>\n");
-            }
-    ?>
+                <!-- Will be filled by Javascript -->
             </select>
         </div>
     </div>

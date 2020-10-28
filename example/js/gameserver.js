@@ -24,6 +24,7 @@ $( document ).ready(() => {
     let ip = window.location.hostname;
     address = `https://${ip}:8090`;
 
+    loadMaplist();
     setupPage();
 
     var socket = new WebSocket(`wss://${ip}:8091`);
@@ -82,6 +83,17 @@ $( document ).ready(() => {
         }
     }
 });
+
+// Load the maplist for serverstart from maplist.txt
+function loadMaplist() {
+    // The Maplist file can be taken from the csgo folder.
+    $.get('./maplist.txt', (data) => {
+        let lines = data.split(/\r\n|\n/);
+        lines.forEach( (map) => {
+            $("#mapAuswahl").append(`<option value="${map}">${map}</option>`);
+        });
+    });
+}
 
 // Setup the Elements according to server status.
 function setupPage() {
