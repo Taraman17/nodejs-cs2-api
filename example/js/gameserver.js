@@ -1,4 +1,4 @@
-﻿var address, mapSelector;
+﻿var address;
 
 function doLogin() {
      window.location.href = `${address}/login`;
@@ -23,9 +23,8 @@ $( document ).ready(() => {
     // Change here if you don't host the webInterfae on the same host as the NodeJS API
     let ip = window.location.hostname;
     address = `https://${ip}:8090`;
-    
-    mapSelector = $("#map").html();
 
+    loadMaplist();
     setupPage();
 
     var socket = new WebSocket(`wss://${ip}:8091`);
@@ -45,7 +44,7 @@ $( document ).ready(() => {
             $('#rounds').html(
                 `Rounds: ${serverInfo.maxRounds} / Left: ${serverInfo.maxRounds - (serverInfo.score.T + serverInfo.score.C)}`
             );
-            
+
             $('.playerDiv ul').empty();
             $('.playerDiv').hide(0);
             if (serverInfo.players.length > 0) {
@@ -57,13 +56,11 @@ $( document ).ready(() => {
             }
             if ($('#mapList li').length < 1) {
                 let maplist = data.mapsAvail;
+                $("#mapList").empty();
                 for (map of maplist) {
                     var li = document.createElement("li");
                     li.appendChild(document.createTextNode(map));
                     $("#mapList").append(li);
-                }
-                if ($("#noMaps").length) {
-                    $("#noMaps").remove();
                 }
             }
         } else if (data.type == "updateProgress") {
@@ -71,11 +68,11 @@ $( document ).ready(() => {
             if (data.payload.step == 'Update Successful!') {
                 window.setTimeout( () => {
                     $('.container-popup').css('display', 'none');
-                }, 2000);
+                }, 1500);
             }
         } else if (data.type == "mapchange") {
             if (data.payload.success) {
-                setupPage('mapchange');
+                setupPage();
                 $('.container-popup').css('display', 'none');
             } else {
                 $('#popupText').html(`Mapchange failed!`);
@@ -87,8 +84,19 @@ $( document ).ready(() => {
     }
 });
 
+// Load the maplist for serverstart from maplist.txt
+function loadMaplist() {
+    // The Maplist file can be taken from the csgo folder.
+    $.get('./maplist.txt', (data) => {
+        let lines = data.split(/\r\n|\n/);
+        lines.forEach( (map) => {
+            $("#mapAuswahl").append(`<option value="${map}">${map}</option>`);
+        });
+    });
+}
+
 // Setup the Elements according to server status.
-function setupPage(action) {
+function setupPage() {
     $('#popupCaption').text('Querying Server');
     function loggedIn() {
         return Promise.resolve(sendGet(`${address}/loginStatus`));
@@ -121,7 +129,7 @@ function setupPage(action) {
 }
 
 function setupNotLoggedIn() {
-    $('#power-image').hide()0;
+    $('#power-image').hide(0);
     $('#startMap').hide(0);
     $('#buttonStop').hide(0);
     $('#buttonStart').hide(0);
@@ -132,7 +140,7 @@ function setupNotLoggedIn() {
 }
 function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
-    getCurrentMap();
+    getMaps();
     $('#startMap').hide(0);
     $('#mapList').on( 'click', showPlay);
     $('#mapList').on( 'dblclick', changeMap);
@@ -145,7 +153,6 @@ function setupServerRunning() {
 }
 function setupServerStopped() {
     $('#power-image').attr('src', 'pic/power-off.png');
-    $("#map").html(mapSelector);
     $('#startMap').show(0);
     $('#buttonStart').show(0);
     $('#buttonStop').hide(0);
@@ -156,6 +163,19 @@ function setupServerStopped() {
     $('#mapSelector').hide('fast');
 }
 
+function doUpdate(aButton) {
+    action = aButton.value.toLowerCase();
+    $('#popupCaption').text(`Updating Server`);
+    $('#popupText').text('Moment bitte!');
+    $('.container-popup').css('display', 'flex');
+
+    sendGet(`${address}/control`, `action=update`, ( data ) => {
+        if(!data.success) {
+            alert('command' + action + ' failed!');
+        }
+    });
+}
+
 function clickButton(aButton) {
     action = aButton.value.toLowerCase();
     $('#popupCaption').text(`${action}ing Server`);
@@ -164,7 +184,7 @@ function clickButton(aButton) {
     startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${address}/control`, `action=${action}&startmap=${startMap}`, ( data ) => {
-        setupPage(action);
+        setupPage();
         if(!data.success) {
             alert('command' + action + ' failed!');
         }
@@ -194,21 +214,20 @@ function movePlayer(event) {
     });
 }
 
-function getCurrentMap() {
+function getMaps() {
     function getServerInfo() {
         return Promise.resolve(sendGet(`${address}/serverInfo`));
     }
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
-        $("#map").html(`Current map: ${data.map}`);
+        $("#currentMap").html(`Current map: ${data.map}`);
         maplist = data.mapsAvail;
+        $("#mapList").empty();
         for (map of maplist) {
             var li = document.createElement("li");
             li.appendChild(document.createTextNode(map));
-            // option.value = map;
             $("#mapList").append(li);
         }
-        $("#noMaps").remove();
     }).catch((error) => {
         // do nothing for now
     });
@@ -254,19 +273,4 @@ function restartRound() {
             $('.container-popup').css('display', 'none');
         }, 1000);
     });
-}
-
-// Bot Training functions
-function setBotRules() {
-    sendGet(`${address}/rcon`, `message=mp_autoteambalance 0`);
-    sendGet(`${address}/rcon`, `message=mp_limitteams 0`);
-    sendGet(`${address}/rcon`, `message=bot_difficulty 3`);
-}
-function addBots(team, quantity) {
-    for(let i=0; i < quantity; i++) {
-        setTimeout(sendGet(`${address}/rcon`, `message=bot_add_${team}`), 100);
-    }
-}
-function kickBots() {
-    sendGet(`${address}/rcon`, `message=bot_kick all`);
 }
