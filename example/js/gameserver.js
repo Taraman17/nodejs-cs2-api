@@ -32,7 +32,6 @@ $( document ).ready(() => {
         socket.send('infoRequest');
     }
     socket.onmessage = (e) => {
-        console.log(e.data);
         let data = JSON.parse(e.data);
 
         if (data.type == "serverInfo") {
