@@ -68,7 +68,11 @@ module.exports = class config {
             'roundEndScript': '',
             'matchEndScript': '',
             //'mapEndScript': '', // For the moment I have no definite way to sense the end of map.
-            'logEndScript': ''
+            'logEndScript': '',
+            // Logfile for API
+            'logFile': '/var/log/csgo-api/log.txt',
+            // logLevel for API-Logfiles
+            'logLevel': 'info'
         };
 
         this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
@@ -146,5 +150,12 @@ module.exports = class config {
 
     script(type) {
         return this._userOptions[`${type}Script`];
+    }
+
+    get logFile() {
+        return this._userOptions.logFile;
+    }
+    get logLevel() {
+        return this._userOptions.logLevel;
     }
 };

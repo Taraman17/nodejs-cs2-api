@@ -35,6 +35,7 @@ const fs = require('fs');
 const events = require('events');
 const pty = require('node-pty');
 const { exec, spawn } = require('child_process');
+const winston = require('winston');
 const si = require('./serverInfo.js');
 const config = require('./config.js');
 
@@ -71,6 +72,26 @@ if (cfg.useHttps) {
     http = require('http');
 }
 
+const logger = winston.createLogger({
+    level: cfg.logLevel,
+    format: winston.format.combine(
+        winston.format.json(),
+        winston.format.timestamp()
+    ),
+    transports: [
+        new winston.transports.File({ filename: cfg.logFile })
+    ],
+});
+if (cfg.logLevel == 'debug') {
+        logger.add (new winston.transports.Console({
+            level: 'debug',
+            format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.simple()
+            )
+        }))
+}
+
 // check for running Server on Startup
 exec('/bin/ps -a', (error, stdout, stderr) => {
     if (error) {
@@ -79,7 +100,12 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
     }
     if (stdout.match(/srcds_linux/) != null) {
       state.serverRunning = true;
-      authenticate();
+      logger.info('Found running server');
+      authenticate().then((data) => {
+          logger.info(`authentication ${data}`);
+      }).catch((data) => {
+          logger.info(`authentication ${data}`);
+      });
     }
 });
 
@@ -135,7 +161,7 @@ var authEmitter = new events.EventEmitter();
  */
 authEmitter.on('authenticated', () => {
     state.authenticated = true;
-    console.log("...success");
+    logger.info("RCON Authenticate success");
     queryMaxRounds();
     // Get current and available maps and store them.
     executeRcon('host_map').then((answer) => {
@@ -146,7 +172,7 @@ authEmitter.on('authenticated', () => {
     });
     reloadMaplist().then((answer) => {
         if (answer == '{ "sucess": false }') {
-            console.log ("Maps could not be loaded");
+            logger.warn("Maps could not be loaded");
         }
     });
 });
@@ -160,17 +186,17 @@ authEmitter.on('authenticated', () => {
 function authenticate() {
     return new Promise((resolve, reject) => {
         if (!state.operationPending) {
-            console.log("authenticating...");
             if (!state.authenticated) {
+                logger.info("RCON authenticating...");
                 state.operationPending = true;
                 state.serverRcon = new rcon();
                 state.serverRcon.authenticate(cfg.rconPass).then(() => {
                     authEmitter.emit('authenticated');
                     resolve(`{ "authenticated": true }`);
                 }).catch((err) => {
-                    console.log("authentication error: " + err);
+                    logger.error("authentication error: " + err);
                     reject(`{ "authenticated": false }`);
-                    console.log("...failed");
+                    logger.warn("RCON Authentication failed");
                 });
                 state.operationPending = false;
 
@@ -188,12 +214,12 @@ function authenticate() {
  * @returns {Promise<string>}          - Promise Object that contains the rcon response or an error message.
  */
 function executeRcon (message) {
-    console.log(`Executing rcon: ${message}`);
+    logger.debug(`Executing rcon: ${message}`);
     return new Promise((resolve, reject) => {
         state.serverRcon.execute(message).then((answer) => {
             resolve(answer);
         }).catch((err) => {
-            console.log(`rcon Error: ${err}`);
+            logger.error(`RCON Error: ${err}`);
             reject(err.message);
         });
     });
@@ -221,13 +247,14 @@ passport.use(
           // Cut the SteamID64 from the returned User-URI
           let steamID64 = identifier.split('/')[5];
           profile.identifier = steamID64;
-          console.log(`User with steamID ${steamID64} logged in`);
+          logger.http(`User with steamID ${steamID64} logged in`);
           return done(null, profile);
         });
     }
 ));
 function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated() && cfg.admins.includes(req.user.identifier)) {
+        logger.http(`User ${req.user.identifier} called ${req.method}:${req.url}`);
         return next();
     }
     res.redirect('/loginStatus');
@@ -276,7 +303,7 @@ app.get('/login/return',
     }
 );
 app.get('/logout', (req, res) => {
-    console.log(`User with steamID ${req.user.identifier} logged out`);
+    logger.info(`User with steamID ${req.user.identifier} logged out`);
     req.logout();
     res.redirect(cfg.redirectPage);
 });
@@ -299,11 +326,11 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Start Server
     if (args.action == "start" && !state.serverRunning && !state.operationPending) {
         state.operationPending = true;
-        console.log('starting server.');
+        logger.info('Starting server.');
         let startMap =  "de_dust2";
         const safe = /^[a-zA-Z0-9-_]*$/;
         if (!safe.test(args.startmap)) {
-            console.log (`Supplied mapname ${args.startmap} is not safe, using de_dust2`);
+            logger.warn(`Supplied mapname ${args.startmap} is not safe, using de_dust2`);
         } else {
             startMap = args.startmap;
         }
@@ -314,13 +341,13 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write('{ "success": false }');
                 res.end();
-                console.log('Error Code: '+error.code);
-                console.log('Signal received: '+error.signal);
-                console.log(stderr);
+                logger.error('Error Code: '+error.code);
+                logger.error('Signal received: '+error.signal);
+                logger.error(stderr);
                 state.serverRunning = false;
                 state.operationPending = false;
             } else {
-                console.log('screen started');
+                logger.info('screen started');
                 authEmitter.once('authenticated', () => {
                     res.writeHeader(200, {"Content-Type": "application/json"});
                     res.write('{ "success": true }');
@@ -334,7 +361,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Stop Server
     } else if (args.action == "stop" && !state.operationPending) {
         state.operationPending = true;
-        console.log("sending quit.");
+        logger.info("sending quit.");
         executeRcon('quit').then((answer) => {
             state.serverRunning = false;
             state.authenticated = false;
@@ -343,7 +370,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
             res.end();
             state.operationPending = false;
         }).catch((err) => {
-            console.log('Stopping server Failed: ' + err);
+            logger.error('Stopping server Failed: ' + err);
             res.writeHeader(200, {"Content-Type": "application/json"});
             res.write(`{ "success": ${!state.serverRunning} }`);
             res.end();
@@ -354,11 +381,11 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     } else if (args.action == "update" && !state.updating && !state.running && !state.operationPending) {
         state.operationPending = true;
         let updateSuccess = false;
-        console.log('Updating Server.');
+        logger.info('Updating Server.');
         let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
 
         updateProcess.on('data', (data) => {
-            console.log(data);
+            logger.debug(data);
             if (data.indexOf('Checking for available updates') != -1) {
                 updateEmitter.emit('progress', 'Checking Steam client updates', 0);
             } else if (data.indexOf('Verifying installation') != -1) {
@@ -377,7 +404,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 updateEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
             } else if (data.indexOf('Success!') != -1) {
                 updateEmitter.emit('progress', 'Update Successful!', 100);
-                console.log('update succeeded');
+                logger.info('update succeeded');
                 updateSuccess = true;
                 state.operationPending = false;
             }
@@ -485,7 +512,7 @@ app.get("/authenticate", ensureAuthenticated, (req, res) => {
     authenticate().then((data) => {
         res.write(data);
         res.end();
-    }).catch((err) => {
+    }).catch((data) => {
         res.write(data);
         res.end();
     });
@@ -500,15 +527,15 @@ app.get("/rcon", ensureAuthenticated, (req, res) => {
         res.end();
     }).catch( (err) => {
         res.writeHeader(200, { 'Content-Type': 'text/plain' });
-        res.write("Error, check console for details");
+        res.write("Error, check logs for details");
         res.end();
-        console.log (err);
+        logger.error(err);
     });
 });
 
 // Process serverData request
 app.get("/serverInfo", ensureAuthenticated, (req, res) => {
-    console.log('Processing Serverinfo request.');
+    logger.info('Processing Serverinfo request.');
     res.writeHeader(200, {"Content-Type": "application/json"});
     if (state.authenticated) {
         res.write(JSON.stringify(serverInfo.getAll()));
@@ -597,10 +624,10 @@ if (cfg.webSockets) {
         let host = '';
         if (cfg.host != '') {
             host = cfg.host;
-            console.log(cfg.host);
+            logger.info(cfg.host);
         } else {
             host = localIP;
-            console.log(localIP);
+            logger.info(localIP);
         }
 
         if(cfg.useHttps) {
@@ -614,7 +641,7 @@ if (cfg.webSockets) {
 /*----------------- log receiving code --------------------*/
 // Since we only control locally installed servers and server logging is not working on
 // 'localhost', we use the ip-address of the interface configured.
-console.log("local IP is: " + localIP);
+logger.info("local IP is: " + localIP);
 var logOptions = {
     address: localIP
 };
@@ -634,8 +661,12 @@ receiver.on('data', (data) => {
         if ((data.message.indexOf("Log file started") != -1) && !state.authenticated) {
             // Start of logfile
             // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
-            console.log("start authenticating");
-            authenticate();
+            logger.info('start authenticating RCON');
+            authenticate().then((data) => {
+                logger.info(`authentication ${data}`);
+            }).catch((data) => {
+                logger.info(`authentication ${data}`);
+            });
             if (cfg.script('logStart') != '') {
                 exec(cfg.script('logStart'));
             }
@@ -648,7 +679,7 @@ receiver.on('data', (data) => {
             mapstring = cutMapName(mapstring);
             serverInfo.map = mapstring;
             mapChangeEmitter.emit('result', 'success');
-            console.log(`Started map: ${mapstring}`);
+            logger.info(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
             serverInfo.newMatch();
             if (cfg.script('mapStart') != '') {
@@ -657,7 +688,7 @@ receiver.on('data', (data) => {
         } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
             // Start of a new match.
             // L 08/13/2020 - 21:49:26: World triggered "Match_Start" on "de_nuke"
-            console.log('detected match start.');
+            logger.info('Detected match start.');
             queryMaxRounds();
             serverInfo.newMatch();
             if (cfg.script('matchStart') != '') {
@@ -715,7 +746,7 @@ receiver.on('data', (data) => {
     }
 });
 receiver.on('invalid', function(invalidMessage) {
-    console.log("Got some completely unparseable gargbase: " + invalidMessage);
+    logger.info("Got some completely unparseable gargbase: " + invalidMessage);
 });
 
 /*------------------------- Helper Functions ----------------------------*/
@@ -730,7 +761,7 @@ function queryMaxRounds() {
         let matches = rex.exec(answer);
         serverInfo.maxRounds = matches[1];
     }).catch((err) => {
-        console.log("Error getting Maxrounds: " + err);
+        logger.error("Error getting Maxrounds: " + err);
     });
 }
 
