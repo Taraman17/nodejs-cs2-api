@@ -68,7 +68,13 @@ module.exports = class config {
             'roundEndScript': '',
             'matchEndScript': '',
             //'mapEndScript': '', // For the moment I have no definite way to sense the end of map.
-            'logEndScript': ''
+            'logEndScript': '',
+            // Logfile for API
+            'logFile': './logs/csgoapi',
+            // logLevel for API-Logfiles. In case 'debug' is set, logs will also be written to console.
+            'logLevel': 'http',
+            // how many Days should logfiles be kept?
+            'logDays': '14'
         };
 
         this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
@@ -146,5 +152,15 @@ module.exports = class config {
 
     script(type) {
         return this._userOptions[`${type}Script`];
+    }
+
+    get logFile() {
+        return this._userOptions.logFile;
+    }
+    get logLevel() {
+        return this._userOptions.logLevel;
+    }
+    get logDays() {
+        return this._userOptions.logDays;
     }
 };
