@@ -36,6 +36,7 @@ const events = require('events');
 const pty = require('node-pty');
 const { exec, spawn } = require('child_process');
 const winston = require('winston');
+require('winston-daily-rotate-file');
 const si = require('./serverInfo.js');
 const config = require('./config.js');
 
@@ -72,24 +73,28 @@ if (cfg.useHttps) {
     http = require('http');
 }
 
+// Setup the logger.
 const logger = winston.createLogger({
     level: cfg.logLevel,
     format: winston.format.combine(
-        winston.format.json(),
-        winston.format.timestamp()
+        winston.format.timestamp(),
+        winston.format.json()
     ),
     transports: [
-        new winston.transports.File({ filename: cfg.logFile })
-    ],
+        new winston.transports.DailyRotateFile({
+            filename: `${cfg.logFile}-%DATE%.log`,
+            datePattern: 'YYYY-MM-DD',
+            maxFiles: `${cfg.logDays}d`
+        })
+    ]
 });
 if (cfg.logLevel == 'debug') {
-        logger.add (new winston.transports.Console({
-            level: 'debug',
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.simple()
-            )
-        }))
+    logger.add (new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+        )
+    }));
 }
 
 // check for running Server on Startup
@@ -100,11 +105,11 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
     }
     if (stdout.match(/srcds_linux/) != null) {
       state.serverRunning = true;
-      logger.info('Found running server');
+      logger.verbose('Found running server');
       authenticate().then((data) => {
-          logger.info(`authentication ${data}`);
+          logger.verbose(`authentication ${data}`);
       }).catch((data) => {
-          logger.info(`authentication ${data}`);
+          logger.verbose(`authentication ${data}`);
       });
     }
 });
@@ -161,7 +166,7 @@ var authEmitter = new events.EventEmitter();
  */
 authEmitter.on('authenticated', () => {
     state.authenticated = true;
-    logger.info("RCON Authenticate success");
+    logger.verbose("RCON Authenticate success");
     queryMaxRounds();
     // Get current and available maps and store them.
     executeRcon('host_map').then((answer) => {
@@ -187,7 +192,7 @@ function authenticate() {
     return new Promise((resolve, reject) => {
         if (!state.operationPending) {
             if (!state.authenticated) {
-                logger.info("RCON authenticating...");
+                logger.verbose("RCON authenticating...");
                 state.operationPending = true;
                 state.serverRcon = new rcon();
                 state.serverRcon.authenticate(cfg.rconPass).then(() => {
@@ -247,16 +252,34 @@ passport.use(
           // Cut the SteamID64 from the returned User-URI
           let steamID64 = identifier.split('/')[5];
           profile.identifier = steamID64;
-          logger.http(`User with steamID ${steamID64} logged in`);
+          logger.http({
+              'user': `${steamID64}`,
+              'message': 'logged in'
+          });
           return done(null, profile);
         });
     }
 ));
 function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated() && cfg.admins.includes(req.user.identifier)) {
-        logger.http(`User ${req.user.identifier} called ${req.method}:${req.url}`);
-        return next();
+    if (req.isAuthenticated()) {
+        if (cfg.admins.includes(req.user.identifier)) {
+            logger.http({
+                'user': `${req.user.identifier}`,
+                'message':`${req.method}:${req.url}`
+            });
+            return next();
+        } else {
+            logger.info({
+                'user': `${req.user.identifier}`,
+                'message': 'User not in Admin list.'
+            });
+            return res.status(401).send('User not in Admin List');
+        }
     }
+    logger.info({
+        'user': 'unknown',
+        'message': `Unauthorized Access from ${req.ip}.`
+    });
     res.redirect('/loginStatus');
 }
 
@@ -303,7 +326,10 @@ app.get('/login/return',
     }
 );
 app.get('/logout', (req, res) => {
-    logger.info(`User with steamID ${req.user.identifier} logged out`);
+    llogger.http({
+          'user': `${steamID64}`,
+          'message': 'logged out'
+      });
     req.logout();
     res.redirect(cfg.redirectPage);
 });
@@ -311,7 +337,7 @@ app.get('/logout', (req, res) => {
 // Return the current login status
 app.get("/loginStatus", (req, res) => {
     res.writeHeader(200, {"Content-Type": "application/json"});
-    if(req.user) {
+    if(req.user && cfg.admins.includes(req.user.identifier)) {
         res.write('{ "login": true }');
     } else {
         res.write('{ "login": false }');
@@ -326,7 +352,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Start Server
     if (args.action == "start" && !state.serverRunning && !state.operationPending) {
         state.operationPending = true;
-        logger.info('Starting server.');
+        logger.verbose('Starting server.');
         let startMap =  "de_dust2";
         const safe = /^[a-zA-Z0-9-_]*$/;
         if (!safe.test(args.startmap)) {
@@ -347,7 +373,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 state.serverRunning = false;
                 state.operationPending = false;
             } else {
-                logger.info('screen started');
+                logger.verbose('screen started');
                 authEmitter.once('authenticated', () => {
                     res.writeHeader(200, {"Content-Type": "application/json"});
                     res.write('{ "success": true }');
@@ -361,7 +387,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Stop Server
     } else if (args.action == "stop" && !state.operationPending) {
         state.operationPending = true;
-        logger.info("sending quit.");
+        logger.verbose("sending quit.");
         executeRcon('quit').then((answer) => {
             state.serverRunning = false;
             state.authenticated = false;
@@ -381,7 +407,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     } else if (args.action == "update" && !state.updating && !state.running && !state.operationPending) {
         state.operationPending = true;
         let updateSuccess = false;
-        logger.info('Updating Server.');
+        logger.verbose('Updating Server.');
         let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
 
         updateProcess.on('data', (data) => {
@@ -404,7 +430,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 updateEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
             } else if (data.indexOf('Success!') != -1) {
                 updateEmitter.emit('progress', 'Update Successful!', 100);
-                logger.info('update succeeded');
+                logger.verbose('update succeeded');
                 updateSuccess = true;
                 state.operationPending = false;
             }
@@ -535,7 +561,7 @@ app.get("/rcon", ensureAuthenticated, (req, res) => {
 
 // Process serverData request
 app.get("/serverInfo", ensureAuthenticated, (req, res) => {
-    logger.info('Processing Serverinfo request.');
+    logger.verbose('Processing Serverinfo request.');
     res.writeHeader(200, {"Content-Type": "application/json"});
     if (state.authenticated) {
         res.write(JSON.stringify(serverInfo.getAll()));
@@ -624,10 +650,10 @@ if (cfg.webSockets) {
         let host = '';
         if (cfg.host != '') {
             host = cfg.host;
-            logger.info(cfg.host);
+            logger.verbose(cfg.host);
         } else {
             host = localIP;
-            logger.info(localIP);
+            logger.verbose(localIP);
         }
 
         if(cfg.useHttps) {
@@ -641,7 +667,7 @@ if (cfg.webSockets) {
 /*----------------- log receiving code --------------------*/
 // Since we only control locally installed servers and server logging is not working on
 // 'localhost', we use the ip-address of the interface configured.
-logger.info("local IP is: " + localIP);
+logger.verbose("local IP is: " + localIP);
 var logOptions = {
     address: localIP
 };
@@ -661,11 +687,11 @@ receiver.on('data', (data) => {
         if ((data.message.indexOf("Log file started") != -1) && !state.authenticated) {
             // Start of logfile
             // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
-            logger.info('start authenticating RCON');
+            logger.verbose('start authenticating RCON');
             authenticate().then((data) => {
-                logger.info(`authentication ${data}`);
+                logger.verbose(`authentication ${data}`);
             }).catch((data) => {
-                logger.info(`authentication ${data}`);
+                logger.verbose(`authentication ${data}`);
             });
             if (cfg.script('logStart') != '') {
                 exec(cfg.script('logStart'));
@@ -679,7 +705,7 @@ receiver.on('data', (data) => {
             mapstring = cutMapName(mapstring);
             serverInfo.map = mapstring;
             mapChangeEmitter.emit('result', 'success');
-            logger.info(`Started map: ${mapstring}`);
+            logger.verbose(`Started map: ${mapstring}`);
             serverInfo.clearPlayers();
             serverInfo.newMatch();
             if (cfg.script('mapStart') != '') {
@@ -688,7 +714,7 @@ receiver.on('data', (data) => {
         } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
             // Start of a new match.
             // L 08/13/2020 - 21:49:26: World triggered "Match_Start" on "de_nuke"
-            logger.info('Detected match start.');
+            logger.verbose('Detected match start.');
             queryMaxRounds();
             serverInfo.newMatch();
             if (cfg.script('matchStart') != '') {
@@ -746,7 +772,7 @@ receiver.on('data', (data) => {
     }
 });
 receiver.on('invalid', function(invalidMessage) {
-    logger.info("Got some completely unparseable gargbase: " + invalidMessage);
+    logger.verbose("Got some completely unparseable gargbase: " + invalidMessage);
 });
 
 /*------------------------- Helper Functions ----------------------------*/
