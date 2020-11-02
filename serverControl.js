@@ -42,11 +42,14 @@ const config = require('./config.js');
 
 /**
  * Stores the state of the controlled server-instance.
+ * @typedef  state
  * @property {boolean}  operationPending - Is a control operation pending.
  * @property {boolean}  serverRunning    - Is the server process running.
  * @property {object}   serverRcon       - rcon-srcds instance for the server.
  * @property {boolean}  authenticated    - Is the rcon instance authenticated with the server.
  */
+ 
+/** @type {state} */
 var state = {
     'operationPending': false,
     'serverRunning': false,
@@ -116,7 +119,7 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
 
 /**
  * Get available maps from server and store them in serverInfo
- * @returns {Promise<JSON-string>} - Promise object that yields the result of reload.
+ * @return {Promise<JSON-string>} - Promise object that yields the result of reload.
  */
 function reloadMaplist() {
     return new Promise((resolve, reject) => {
@@ -185,7 +188,7 @@ authEmitter.on('authenticated', () => {
 
 /**
  * Authenticate rcon with server
- * @returns {Promise<JSON-string>} - Promise object that yields the result of authentication.
+ * @return {Promise<JSON-string>} - Promise object that yields the result of authentication.
  * @emits authEmitter.authenticated
  */
 function authenticate() {
@@ -223,7 +226,7 @@ function authenticate() {
 /**
  * Executes a rcon command
  * @param   {string}           message - The rcon command to execute
- * @returns {Promise<string>}          - Promise Object that contains the rcon response or an error message.
+ * @return {Promise<string>}          - Promise Object that contains the rcon response or an error message.
  */
 function executeRcon (message) {
     logger.debug(`Executing rcon: ${message}`);
@@ -621,7 +624,9 @@ if (cfg.webSockets) {
          */
         serverInfo.serverInfoChanged.on('change', sendUpdate);
 
-        // Report update progress to clients.
+        /** 
+         * Reports update progress to clients.
+         */
         var reportProgress = (action, progress) => {
             ws.send(`{ "type": "updateProgress", "payload": { "step": "${action}", "progress": ${progress} } }`);
         }
@@ -631,7 +636,9 @@ if (cfg.webSockets) {
          */
         updateEmitter.on('progress', reportProgress);
 
-        // Send info on completed mapchange.
+        /** 
+         * Sends info on completed mapchange.
+         */
         var sendMapchangeComplete = (result) => {
             ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
             state.operationPending = false;
@@ -687,6 +694,7 @@ var receiver = new logReceiver.LogReceiver(logOptions);
 /**
  * React to authenticated message from server.
  * @listens receiver#data
+ * @emits mapChangeEmitter#result
  */
 receiver.on('data', (data) => {
     if (data.isValid) {
