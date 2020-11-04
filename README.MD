@@ -8,13 +8,14 @@ I strongly adivise to use secure connections to prevent possible man-in-the-midd
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver express express-session cors passport passport-steam node-pty ws 
+npm install --save rcon-srcds srcds-log-receiver express express-session cors passport passport-steam node-pty ws winston winston-daily-rotate-file
 ```
 
 ## Configuration
 The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 9871
 ```
 log on
+sv_logecho 1
 mp_logfile 1
 mp_logdetail 3
 mp_logmessages 1
