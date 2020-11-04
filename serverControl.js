@@ -1,7 +1,7 @@
 0/**
  * @file CS:GO Dedicated Server Control
  * @author Markus Adrario <mozilla@adrario.de>
- * @version 0.6
+ * @version 0.8
  * @requires rcon-srcds
  * @requires srcds-log-receiver
  * @requires express
@@ -17,6 +17,8 @@
  * @requires events
  * @requires node-pty
  * @requires child_process
+ * @requires winston
+ * @requires winston-daily-rotate-file
  * @requires ./serverInfo.js
  * @requires ./config.js
  */
@@ -91,6 +93,7 @@ const logger = winston.createLogger({
         })
     ]
 });
+// If level is 'debug', also log to console.
 if (cfg.logLevel == 'debug') {
     logger.add (new winston.transports.Console({
         format: winston.format.combine(
@@ -131,6 +134,7 @@ function reloadMaplist() {
                 maplist.push(cutMapName(mapString));
             });
             maplist.sort();
+            // Only return, if list has at least one item.
             if (maplist.length > 0) {
                 serverInfo.mapsAvail = maplist;
                 resolve(`{ "sucess": true }`);
@@ -144,19 +148,30 @@ function reloadMaplist() {
 }
 
 // Event Emitters
+/**
+ * Emits an event if mapchange is finished
+ */
 var mapChangeEmitter = new events.EventEmitter();
 /**
  * Mapchange completed event.
- * @event mapChangeEmitter#completed
+ * @event mapChangeEmitter#result
+ * @type {string} 'success' or another string yielding the reason for failure.
  */
 
+/**
+ * Emits an event reporting progress of the Server update.
+ */
 var updateEmitter = new events.EventEmitter();
 /**
- * Update Progress
+ * Update Progress with step and percentage
  * @event updateEmitter#progress
- * @type {string}
+ * @type {string} - Reports, which action is in progress during the update.
+ * @type {int} - Integer representing the percentage of the action that is completed.
  */
 
+/**
+ * Emits an event if rcon authentication is finished
+ */
 var authEmitter = new events.EventEmitter();
 /**
  * Authenticated event.
@@ -189,7 +204,7 @@ authEmitter.on('authenticated', () => {
 /**
  * Authenticate rcon with server
  * @return {Promise<JSON-string>} - Promise object that yields the result of authentication.
- * @emits authEmitter.authenticated
+ * @fires authEmitter.authenticated
  */
 function authenticate() {
     return new Promise((resolve, reject) => {
@@ -597,9 +612,9 @@ if (cfg.webSockets) {
 
     /**
      * Websocket to send data updates to a webClient.
+     * @listens ws#connection
      */
     wss.on('connection', (ws) => {
-        // Helper function to send ServerInfo to client.
         /**
          * Sends updated serverInfo to clients.
          */
@@ -607,7 +622,6 @@ if (cfg.webSockets) {
             ws.send(`{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())} }`);
         }
 
-        // React to requests.
         /**
          * Listens for messages on Websocket.
          * @listens ws#message
@@ -626,6 +640,8 @@ if (cfg.webSockets) {
 
         /** 
          * Reports update progress to clients.
+         * @param {string} action - Reports, which action is in progress during the update.
+         * @param {int} progress - Integer representing the percentage of the action that is completed.
          */
         var reportProgress = (action, progress) => {
             ws.send(`{ "type": "updateProgress", "payload": { "step": "${action}", "progress": ${progress} } }`);
@@ -638,6 +654,7 @@ if (cfg.webSockets) {
 
         /** 
          * Sends info on completed mapchange.
+         * @param {string} result  - 'sucess' if mapchange was successful.
          */
         var sendMapchangeComplete = (result) => {
             ws.send(`{ "type": "mapchange", "payload": { "success": ${result == 'success'} } }`);
@@ -692,7 +709,7 @@ var logOptions = {
  */
 var receiver = new logReceiver.LogReceiver(logOptions);
 /**
- * React to authenticated message from server.
+ * Listens for logs sent by the CS:GO-Server
  * @listens receiver#data
  * @emits mapChangeEmitter#result
  */
@@ -811,6 +828,7 @@ function queryMaxRounds() {
  * @param {string} string - String to search.
  * @param {regex} regex   - Regex to execute on the string.
  * @param {integer} index - Optional index which capturing group should be retreived.
+ * @returns {string[]} matches - Array holding the found matches.
  */
 function getMatches(string, regex, index) {
     index || (index = 1); // default to the first capturing group
