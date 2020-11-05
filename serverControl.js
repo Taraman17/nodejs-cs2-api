@@ -609,19 +609,44 @@ app.get("/serverInfo", ensureAuthenticated, (req, res) => {
 //------------------------ END V0.X ----------------------------//
 
 //--------------------------- V1.0 ----------------------------//
-// Handle authentication.
+/**
+ * @api {get} /csgoapi/v1.0/login
+ * @apiVersion 1.0
+ * @apiName Login
+ * @apiGroup Auth
+ *
+ * @apiSuccess (302) Redirect to confiured page.
+ * @apiError (302) Redirect to /csgoapi/v1.0/loginStatus
+ */
 app.get('/csgoapi/v1.0/login',
     passport.authenticate('steam', { failureRedirect: '/csgoapi/v1.0/loginStatus' }),
     (req, res) => {
         res.redirect(cfg.redirectPage);
     }
 );
+/**
+ * @api {get} /csgoapi/v1.0/login/return
+ * @apiVersion 1.0
+ * @apiName Login Return
+ * @apiGroup Auth
+ *
+ * @apiSuccess (302) Redirect to confiured page.
+ * @apiError (302) Redirect to /csgoapi/v1.0/loginStatus
+ */
 app.get('/csgoapi/v1.0/login/return',
     passport.authenticate('steam', { failureRedirect: '/csgoapi/v1.0/loginStatus' }),
     (req, res) => {
         res.redirect(cfg.redirectPage);
     }
 );
+/**
+ * @api {get} /csgoapi/v1.0/logout
+ * @apiVersion 1.0
+ * @apiName Logout
+ * @apiGroup Auth
+ *
+ * @apiSuccess (302) Redirect to confiured page.
+ */
 app.get('/csgoapi/v1.0/logout', (req, res) => {
     logger.http({
           'user': `${steamID64}`,
@@ -631,7 +656,19 @@ app.get('/csgoapi/v1.0/logout', (req, res) => {
     res.redirect(cfg.redirectPage);
 });
 
-// Return the current login status
+/**
+ * @api {get} /csgoapi/v1.0/loginStatus
+ * @apiVersion 1.0
+ * @apiName LoginStatus
+ * @apiGroup Auth
+ *
+ * @apiSuccess {Boolean} login
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     {
+ *        "login": true/false
+ *     }
+ */
 app.get("/csgoapi/v1.0/loginStatus", (req, res) => {
     if(req.user && cfg.admins.includes(req.user.identifier)) {
         res.json({ "login": true });
