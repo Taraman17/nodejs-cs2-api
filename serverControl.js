@@ -223,7 +223,8 @@ function authenticate() {
                     state.operationPending = 'none';
                 }).catch((err) => {
                     if (err == 'Already authenticated') {
-                        logger.info("Already authenticated.");
+                        logger.verbose('Already authenticated.');
+                        authEmitter.emit('authenticated');
                         resolve(`{ "authenticated": true }`);
                     } else {
                         logger.error("authentication error: " + err);
@@ -233,16 +234,18 @@ function authenticate() {
                 });
 
             } else {
-                authEmitter.emit('authenticated');
+                logger.info('Already authenticated.');
                 resolve(`{ "authenticated": true }`);
             }
         } else {
             if (state.authenticated) {
-                authEmitter.emit('authenticated');
+                logger.verbose('Already authenticated.');
                 resolve(`{ "authenticated": true }`);
+            } else {
+                logger.verbose(`Rcon authentication cancelled due to other operation pending: ${state.operationPending}`);
+                reject(`{ "authenticated": false }`);
             }
         }
-        reject(`{ "authenticated": false }`);
     });
 }
 
