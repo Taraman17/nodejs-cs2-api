@@ -223,8 +223,7 @@ function authenticate() {
                     state.operationPending = 'none';
                 }).catch((err) => {
                     if (err == 'Already authenticated') {
-                        logger.info(err);
-                        authEmitter.emit('authenticated');
+                        logger.info("Already authenticated.");
                         resolve(`{ "authenticated": true }`);
                     } else {
                         logger.error("authentication error: " + err);
@@ -657,19 +656,19 @@ app.get('/csgoapi/v1.0/logout', (req, res) => {
 });
 
 /**
+ * @apiDescription Return the status of login to client.
+ *
  * @api {get} /csgoapi/v1.0/loginStatus
  * @apiVersion 1.0
  * @apiName LoginStatus
  * @apiGroup Auth
  *
  * @apiSuccess {Boolean} login
- * @apiSuccessExample {json}
+ * @apiSuccessExample {json} login
  *     HTTP/1.1 200 OK
- *     {
- *        "login": true/false
- *     }
+ *     { "login": true/false }
  */
-app.get("/csgoapi/v1.0/loginStatus", (req, res) => {
+app.get('/csgoapi/v1.0/loginStatus', (req, res) => {
     if(req.user && cfg.admins.includes(req.user.identifier)) {
         res.json({ "login": true });
     } else {
@@ -677,17 +676,42 @@ app.get("/csgoapi/v1.0/loginStatus", (req, res) => {
     }
 });
 
-// Manually Authenticate RCON
-app.get("/csgoapi/v1.0/authenticate", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Manually Authenticate RCON
+ *
+ * @api {get} /csgoapi/v1.0/authenticate
+ * @apiVersion 1.0
+ * @apiName Authenticate
+ * @apiGroup RCON
+ *
+ * @ApiSuccess {boolean} authneticated
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "authenticated": true/false }
+ */
+app.get('/csgoapi/v1.0/authenticate', ensureAuthenticated, (req, res) => {
     authenticate().then((data) => {
         res.json(data);
     }).catch((data) => {
-        res.write(data);
+        res.send(data);
     });
 });
 
-// serverData request
-app.get("/csgoapi/v1.0/serverInfo", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription serverData request
+ *
+ * @api {get} /csgoapi/v1.0/serverInfo
+ * @apiVersion 1.0
+ * @apiName serverInfo
+ * @apiGroup Info
+ *
+ * @apiSuccess {json} serverInfo object (see './serverInfo.js' for example)
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 503 Service Unavailable
+ *     { "error": "RCON not authenticated" }
+ */
+app.get('/csgoapi/v1.0/serverInfo', ensureAuthenticated, (req, res) => {
     logger.verbose('Processing Serverinfo request.');
     if (state.authenticated) {
         res.json(serverInfo.getAll());
@@ -698,8 +722,62 @@ app.get("/csgoapi/v1.0/serverInfo", ensureAuthenticated, (req, res) => {
     }
 });
 
-// Start Server
-app.get("/csgoapi/v1.0/control/start", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Query if CS:GO server is running.
+ *
+ * @api {get} /csgoapi/v1.0/info/runstatus
+ * @apiVersion 1.0
+ * @apiName RunStatus
+ * @apiGroup Info
+ *
+ * @apiSuccess {boolean} running
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "running": true/false}
+ */
+app.get('/csgoapi/v1.0/info/runstatus', ensureAuthenticated, (req, res) => {
+    res.json({ "running": state.serverRunning });
+});
+
+/**
+ * @apiDescription Query if RCON is authenticated
+ *
+ * @api {get} /csgoapi/v1.0/info/rconauthstatus
+ * @apiVersion 1.0
+ * @apiName RconAuthStatus
+ * @apiGroup Info
+ *
+ * @apiSuccess {boolean} rconauth
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "rconauth": true/false}
+ */
+app.get('/csgoapi/v1.0/info/rconauthstatus', ensureAuthenticated, (req, res) => {
+    res.json({ "rconauth": state.authenticated });
+});
+
+/**
+ * @apiDescription Start CS:GO Server
+ *
+ * @api {get} /csgoapi/v1.0/control/start
+ * @apiVersion 1.0
+ * @apiName Start
+ * @apiGroup Control
+ *
+ * @apiParam {string} mapname filename of the map without extension (.bsp)
+ * @apiParamExample {string} Map-example
+ *     cs_italy
+ *
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 503 Service Unavailable
+ *     { "error": "Server already running" }
+ */
+app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
     var args = req.query;
 
     if (!state.serverRunning && state.operationPending == 'none') {
@@ -738,8 +816,24 @@ app.get("/csgoapi/v1.0/control/start", ensureAuthenticated, (req, res) => {
     }
 });
 
-// Stop Server
-app.get("/csgoapi/v1.0/control/stop", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Stop CS:GO Server
+ *
+ * @api {get} /csgoapi/v1.0/control/stop
+ * @apiVersion 1.0
+ * @apiName Stop
+ * @apiGroup Control
+ 
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 503 Service Unavailable
+ *     { "error": "Server not running" }
+ */
+app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
     if (state.serverRunning && state.operationPending == 'none') {
         state.operationPending = 'stop';
         logger.verbose("sending quit.");
@@ -754,14 +848,30 @@ app.get("/csgoapi/v1.0/control/stop", ensureAuthenticated, (req, res) => {
             state.operationPending = 'none';
         });
     } else if (!state.serverRunning) {
-        res.status(501).json({ "error": "Server not running." });
+        res.status(503).json({ "error": "Server not running." });
     } else if (state.operationPending != 'none') {
         res.status(503).json({ "error": `Another Operation is pending: ${state.operationPending}` });
     }
 });
 
-//Update Server
-app.get("/csgoapi/v1.0/control/update", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Update CS:GO Server
+ *
+ * @api {get} /csgoapi/v1.0/control/update
+ * @apiVersion 1.0
+ * @apiName Update
+ * @apiGroup Control
+ 
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 501 Internal Server Error
+ *     { "error": "Update could not be started." }
+ */
+app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
     if (!state.serverRunning && state.operationPending == 'none') {
         state.operationPending = 'update';
         let updateSuccess = false;
@@ -798,7 +908,7 @@ app.get("/csgoapi/v1.0/control/update", ensureAuthenticated, (req, res) => {
             if (updateProcess) {
                 res.json(`{ "success": true }`);
             } else {
-                res.status(501).json({ "error": "Update could not be started" });
+                res.status(501).json({ "error": "Update could not be started." });
             }
             updateProcess.removeAllListeners();
             state.operationPending = 'none';
@@ -820,14 +930,25 @@ app.get("/csgoapi/v1.0/control/update", ensureAuthenticated, (req, res) => {
     }
 });
 
-// Send Status
-app.get("/csgoapi/v1.0/control/status", ensureAuthenticated, (req, res) => {
-    res.json({ "running": (state.serverRunning && state.authenticated) });
-});
-
-
 //change map
-app.get("/csgoapi/v1.0/control/changemap", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Change Map
+ *
+ * @api {get} /csgoapi/v1.0/control/update
+ * @apiVersion 1.0
+ * @apiName Update
+ * @apiGroup Control
+ 
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 501 Internal Server Error
+ *     { "error": "Update could not be started." }
+ */
+app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
     var args = req.query;
     if (state.operationPending == 'none') {
         state.operationPending = 'mapchange';
@@ -877,20 +998,39 @@ app.get("/csgoapi/v1.0/control/changemap", ensureAuthenticated, (req, res) => {
 
 // TODO: Check JSON returned by function
 // Update Maps available on server
-app.get("/csgoapi/v1.0/control/reloadmaplist", ensureAuthenticated, (req, res) => {
+app.get('/csgoapi/v1.0/control/reloadmaplist', ensureAuthenticated, (req, res) => {
     reloadMaplist().then( (answer) => {
         res.json(answer);
     });
 });
 
-// Process rcon requests
-app.get("/csgoapi/v1.0/rcon", ensureAuthenticated, (req, res) => {
+/**
+ * @apiDescription Process rcon requests
+ *
+ * @api /csgoapi/v1.0/rcon
+ * @apiVersion 1.0
+ * @apiName Rcon
+ * @apiGroup Rcon
+ *
+ * @apiParam {string} message RCON Command to execute.
+ * @apiParamExample {string}
+ *     'mp_limitteams 0'
+ *
+ * @apiSuccess {string} answer Servers answer string to RCON request
+ * @apiSuccessExample {string}
+ *     "mp_maxrounds" = "30" ( def. "0" ) min. 0.000000 game notify replicated          - max number of rounds to play before server changes maps
+ *     L 11/06/2020 - 19:05:14: rcon from "127.0.0.1:54598": command "mp_maxrounds"
+ * @apiError {string} errortext
+ * @apiErrorExample {string}
+ *     'Error, check server logs for details.'
+ */
+app.get('/csgoapi/v1.0/rcon', ensureAuthenticated, (req, res) => {
     var message = req.query.message;
     res.set('Content-Type', 'text/plain');
     executeRcon(message).then((answer) => {
         res.send(answer);
     }).catch( (err) => {
-        res.status(501).send("Error, check server logs for details.");
+        res.status(501).send('Error, check server logs for details.');
         logger.error(err);
     });
 });
