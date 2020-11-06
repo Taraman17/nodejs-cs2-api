@@ -744,24 +744,14 @@ app.get("/csgoapi/v1.0/control/stop", ensureAuthenticated, (req, res) => {
         state.operationPending = 'stop';
         logger.verbose("sending quit.");
         executeRcon('quit').then((answer) => {
-            if (!state.serverRunning) {
-                state.serverRunning = false;
-                state.authenticated = false;
-                res.json({ "success": true });
-            } else {
-                state.operationPending = 'none';
-                res.status(501).json({ "error": "Server still running." });
-            }
+            state.serverRunning = false;
+            state.authenticated = false;
+            res.json({ "success": true });
+            state.operationPending = 'none';
         }).catch((err) => {
-            if (!state.serverRunning) {
-                state.serverRunning = false;
-                state.authenticated = false;
-                res.json({ "success": true });
-            } else {
-                logger.error('Stopping server Failed: ' + err);
-                res.status(501).json({ "error": `RCON Error: ${err.toString()}` });
-                state.operationPending = 'none';
-            }
+            logger.error('Stopping server Failed: ' + err);
+            res.status(501).json({ "error": `RCON Error: ${err.toString()}` });
+            state.operationPending = 'none';
         });
     } else if (!state.serverRunning) {
         res.status(501).json({ "error": "Server not running." });
@@ -839,7 +829,7 @@ app.get("/csgoapi/v1.0/control/status", ensureAuthenticated, (req, res) => {
 //change map
 app.get("/csgoapi/v1.0/control/changemap", ensureAuthenticated, (req, res) => {
     var args = req.query;
-    if (!state.operationPending) {
+    if (state.operationPending == 'none') {
         state.operationPending = 'mapchange';
         // only try to change map, if it exists on the server.
         if (serverInfo.mapsAvail.includes(args.map)) {
