@@ -703,7 +703,7 @@ app.get('/csgoapi/v1.0/authenticate', ensureAuthenticated, (req, res) => {
 /**
  * @apiDescription serverData request
  *
- * @api {get} /csgoapi/v1.0/serverInfo
+ * @api {get} /csgoapi/v1.0/info/serverInfo
  * @apiVersion 1.0
  * @apiName serverInfo
  * @apiGroup Info
@@ -714,7 +714,7 @@ app.get('/csgoapi/v1.0/authenticate', ensureAuthenticated, (req, res) => {
  *     HTTP/1.1 503 Service Unavailable
  *     { "error": "RCON not authenticated" }
  */
-app.get('/csgoapi/v1.0/serverInfo', ensureAuthenticated, (req, res) => {
+app.get('/csgoapi/v1.0/info/serverInfo', ensureAuthenticated, (req, res) => {
     logger.verbose('Processing Serverinfo request.');
     if (state.authenticated) {
         res.json(serverInfo.getAll());
