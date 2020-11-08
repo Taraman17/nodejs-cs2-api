@@ -5,6 +5,10 @@ The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
+## NOTE:
+This Release (v0.8) changes the API end Points to facitlitate versioning of the API.
+The old Endpoints will be available for some time to allow for a transition time. I expect to remove them with Version 1.0.
+
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
@@ -46,26 +50,26 @@ For better readability, $.get() is used in the following examples
 
 ### Login / Logout
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/login')
-$.get('http://<your-servers-address>:<your-port>/logout')
-$.get('http://<your-servers-address>:<your-port>/loginStatus')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/login')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/logout')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/loginStatus')
 ```
 
-For Authentication the API redirects to the Steam login page by calling '/login'
-After authentication there, it will return to '/loginStatus' by default, returning { "login": true/false }.
+For Authentication the API redirects to the Steam login page by calling '/csgoapi/v1.0/login'
+After authentication there, it will return to '/csgoapi/v1.0/loginStatus' by default, returning { "login": true/false }.
 If you use the API in a web interface, you can set 'redirectPage' in the config to your startPage (e.g. http://your-webserver/index.html) This way, you can call up the login page and then be returned to your web application after you got the session cookie in your browser.
 
-If you want to have a manual logout in your client, call '/logout', which will redirect to '/loginStatus' to confirm the success.
+If you want to have a manual logout in your client, call '/csgoapi/v1.0/logout', which will redirect to '/csgoapi/v1.0/loginStatus' to confirm the success.
 
 ### Server Control
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/control', 'action=<anAction>')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/control/<anAction>')
 ```
 The /control message will return a JSON-String.
 'action' can have the following values:
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
-- start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }
+- start -> optional additional argument "startmap" (&startmap=mapname): { "success": true/false }
 If run without startmap, server will be started with famous de_dust2.
 - changemap -> additional argument "map" (action=changemap&map=mapname): 
 If you do not use websockets, the answer will be { "success": true/false }. true if start of new map is logged, false in case of error or after a timeout of 30 seconds.
@@ -78,14 +82,14 @@ If you use websockets, answer will be { "success": true/false } if the rcon comm
 
 ### RCON
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/rcon', 'message=command')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/rcon', 'message=command')
 ```
 'command' is the command as you would enter it in the servers console.
 Answer is the response as string.
 
 ### Server Info
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/serverInfo')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/serverInfo')
 ```
 Gets information on the server as JSON-String. See serverInfo.js for available data.
 
