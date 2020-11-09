@@ -1,4 +1,10 @@
 ﻿var address;
+var ip = window.location.hostname;
+try {
+    var socket = new WebSocket(`wss://${ip}:8091`);
+} catch (err) {
+    console.error('Connection to websocket failed:\n' + err);
+}
 
 function doLogin() {
      window.location.href = `${address}/login`;
@@ -21,13 +27,11 @@ function sendGet(address, data, callback) {
 // what to do after document is loaded.
 $( document ).ready(() => {
     // Change here if you don't host the webInterfae on the same host as the NodeJS API
-    let ip = window.location.hostname;
-    address = `https://${ip}:8090`;
+    address = `https://${ip}:8090/csgoapi/v1.0`;
 
     loadMaplist();
     setupPage();
 
-    var socket = new WebSocket(`wss://${ip}:8091`);
     socket.onopen = () => {
         socket.send('infoRequest');
     }
@@ -54,12 +58,14 @@ $( document ).ready(() => {
                 }
             }
             if ($('#mapList li').length < 1) {
-                let maplist = data.mapsAvail;
-                $("#mapList").empty();
-                for (map of maplist) {
-                    var li = document.createElement("li");
-                    li.appendChild(document.createTextNode(map));
-                    $("#mapList").append(li);
+                if (data.mapsAvail) {
+                    let maplist = data.mapsAvail;
+                    $("#mapList").empty();
+                    for (map of maplist) {
+                        var li = document.createElement("li");
+                        li.appendChild(document.createTextNode(map));
+                        $("#mapList").append(li);
+                    }
                 }
             }
         } else if (data.type == "updateProgress") {
@@ -105,7 +111,7 @@ function setupPage() {
     loginCheck.then((data) => {
         if (data.login) {
             function running() {
-                return Promise.resolve(sendGet(`${address}/control`, `action=status`));
+                return Promise.resolve(sendGet(`${address}/info/runstatus`));
             }
             let serverRunning = running();
             serverRunning.then((data) => {
@@ -168,9 +174,20 @@ function doUpdate(aButton) {
     $('#popupText').text('Moment bitte!');
     $('.container-popup').css('display', 'flex');
 
-    sendGet(`${address}/control`, `action=update`, ( data ) => {
-        if(!data.success) {
-            alert('command' + action + ' failed!');
+    sendGet(`${address}/control/update`).done(( data ) => {
+        if(socket.readyState > 2) {
+            $('.container-popup').css('display', 'none');
+        }
+    }).fail((err) => {
+        let errorText = err.responseJSON.error;
+        if (errorText.indexOf('Another Operation is pending:') != -1) {
+            let operation = errorText.split(':')[1];
+            alert(`${operation} running.\nTry again in a moment.`);
+        } else {
+            alert(`command ${action} failed!\nError: ${errorText}`);
+        }
+        if(socket.readyState > 2) {
+            $('.container-popup').css('display', 'none');
         }
     });
 }
@@ -182,10 +199,21 @@ function clickButton(aButton) {
     $('.container-popup').css('display', 'flex');
     startMap = document.getElementById('mapAuswahl').value;
 
-    sendGet(`${address}/control`, `action=${action}&startmap=${startMap}`, ( data ) => {
+    sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
         setupPage();
-        if(!data.success) {
-            alert('command' + action + ' failed!');
+        if(socket.readyState > 2) {
+            $('.container-popup').css('display', 'none');
+        }
+    }).fail((err) => {
+        let errorText = err.responseJSON.error;
+        if (errorText.indexOf('Another Operation is pending:') != -1) {
+            let operation = errorText.split(':')[1];
+            alert(`${operation} running.\nTry again in a moment.`);
+        } else {
+            alert(`command ${action} failed!\nError: ${errorText}`);
+        }
+        if(socket.readyState > 2) {
+            $('.container-popup').css('display', 'none');
         }
     });
 }
@@ -215,7 +243,7 @@ function movePlayer(event) {
 
 function getMaps() {
     function getServerInfo() {
-        return Promise.resolve(sendGet(`${address}/serverInfo`));
+        return Promise.resolve(sendGet(`${address}/info/serverInfo`));
     }
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
@@ -251,7 +279,7 @@ function changeMap(event) {
     $('#mapSelector').hide('fast');
     $('#popupCaption').text('Changing Map');
     $('.container-popup').css('display', 'flex');
-    sendGet(`${address}/control`, `action=changemap&map=${map}`, (data) => {
+    sendGet(`${address}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
             $('#popupText').html(`Changing map to ${map}`);
         } else {
