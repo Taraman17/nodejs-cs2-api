@@ -168,30 +168,6 @@ function setupServerStopped() {
     $('#mapSelector').hide('fast');
 }
 
-function doUpdate(aButton) {
-    action = aButton.value.toLowerCase();
-    $('#popupCaption').text(`Updating Server`);
-    $('#popupText').text('Moment bitte!');
-    $('.container-popup').css('display', 'flex');
-
-    sendGet(`${address}/control/update`).done(( data ) => {
-        if(socket.readyState > 2) {
-            $('.container-popup').css('display', 'none');
-        }
-    }).fail((err) => {
-        let errorText = err.responseJSON.error;
-        if (errorText.indexOf('Another Operation is pending:') != -1) {
-            let operation = errorText.split(':')[1];
-            alert(`${operation} running.\nTry again in a moment.`);
-        } else {
-            alert(`command ${action} failed!\nError: ${errorText}`);
-        }
-        if(socket.readyState > 2) {
-            $('.container-popup').css('display', 'none');
-        }
-    });
-}
-
 function clickButton(aButton) {
     action = aButton.value.toLowerCase();
     $('#popupCaption').text(`${action}ing Server`);
@@ -200,7 +176,9 @@ function clickButton(aButton) {
     startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
-        setupPage();
+        if (action != 'update') {
+            setupPage();
+        }
         if(socket.readyState > 2) {
             $('.container-popup').css('display', 'none');
         }
