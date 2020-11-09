@@ -118,13 +118,30 @@ function setupPage() {
     let loginCheck = loggedIn();
     loginCheck.then((data) => {
         if (data.login) {
-            function running() {
+            let running = () => {
                 return Promise.resolve(sendGet(`${address}/info/runstatus`));
             }
             let serverRunning = running();
             serverRunning.then((data) => {
                 if (data.running) {
-                    setupServerRunning();
+                    let authStatus = () => {
+                        return Promise.resolve(sendGet(`${address}/info/rconauthstatus`));
+                    }
+                    let authenticated = authStatus();
+                    authenticated.then((data) => {
+                        if (data.rconauth) {
+                            setupServerRunning();
+                        } else {
+                            sendGet(`${address}/authenticate`).done((data) => {
+                                if (data.authenticated) {
+                                    setupServerRunning();
+                                } else {
+                                    alert('RCON not authenticated - try restarting server manually!');
+                                    setupServerStopped();
+                                }
+                            });
+                        }
+                    });
                 } else {
                     setupServerStopped();
                 }
