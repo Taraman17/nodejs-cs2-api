@@ -791,7 +791,7 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
         controlEmitter.emit('exec', 'start', 'start');
         state.operationPending = 'start';
         logger.verbose('Starting server.');
-        let startMap = "de_dust2";
+        let startMap = 'de_dust2';
         const safe = /^[a-zA-Z0-9-_]*$/;
         if (!safe.test(args.startmap)) {
             logger.warn(`Supplied mapname ${args.startmap} is not safe, using de_dust2`);
@@ -1183,7 +1183,7 @@ var receiver = new logReceiver.LogReceiver(logOptions);
 receiver.on('data', (data) => {
     if (data.isValid) {
         // Start authentication, when not authenticated.
-        if ((data.message.indexOf("Log file started") != -1) && !state.authenticated) {
+        if ((data.message.indexOf('Log file started') != -1) && !state.authenticated) {
             // Start of logfile
             // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
             logger.verbose('start authenticating RCON');
@@ -1195,7 +1195,7 @@ receiver.on('data', (data) => {
             if (cfg.script('logStart') != '') {
                 exec(cfg.script('logStart'));
             }
-        } else if (data.message.indexOf("Started map") != -1) {
+        } else if (data.message.indexOf('Started map') != -1) {
             // Start of map.
             // 'L 12/29/2005 - 13:33:49: Started map "cs_italy" (CRC "1940414799")
             let rex = /Started map \"(\S+)\"/g;
@@ -1252,11 +1252,11 @@ receiver.on('data', (data) => {
             // L 05/11/2020 - 22:50:47: "Dummy<11><STEAM_0:0:0000000><Unassigned>" disconnected (reason "Disconnect")
             let rex = /"(.+)<\d+><(STEAM_\d+:\d+:\d+)>/g;
             let matches = rex.exec(data.message);
-            if (data.message.indexOf("entered the game") != -1) {
+            if (data.message.indexOf('entered the game') != -1) {
                 serverInfo.addPlayer( {'name': matches[1], 'steamID': matches[2]} );
             } else if (data.message.search(/disconnected \(reason/) != -1) {
                 serverInfo.removePlayer(matches[2]);
-            } else if (data.message.indexOf("switched from team") != -1) {
+            } else if (data.message.indexOf('switched from team') != -1) {
                 rex = /<(STEAM_\d+:\d+:\d+)>.*switched from team <\S+> to <(\S+)>/g;
                 matches = rex.exec(data.message);
                 serverInfo.assignPlayer(matches[1], matches[2]);
@@ -1272,7 +1272,7 @@ receiver.on('data', (data) => {
     }
 });
 receiver.on('invalid', function(invalidMessage) {
-    logger.verbose("Got some completely unparseable gargbase: " + invalidMessage);
+    logger.verbose('Got some completely unparseable gargbase: ' + invalidMessage);
 });
 
 /*------------------------- Helper Functions ----------------------------*/
@@ -1287,7 +1287,7 @@ function queryMaxRounds() {
         let matches = rex.exec(answer);
         serverInfo.maxRounds = matches[1];
     }).catch((err) => {
-        logger.error("Error getting Maxrounds: " + err);
+        logger.error('Error getting Maxrounds: ' + err);
     });
 }
 
