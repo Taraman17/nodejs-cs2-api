@@ -28,13 +28,10 @@ function sendGet(address, data, callback) {
 $( document ).ready(() => {
     // Change here if you don't host the webInterfae on the same host as the NodeJS API
     address = `https://${ip}:8090/csgoapi/v1.0`;
-
-    loadMaplist();
-    setupPage();
-
     socket.onopen = () => {
         socket.send('infoRequest');
     }
+
     socket.onmessage = (e) => {
         let data = JSON.parse(e.data);
 
@@ -57,9 +54,9 @@ $( document ).ready(() => {
                     $(`#${player.team.toLowerCase()}Players`).show(0);
                 }
             }
-            if ($('#mapList li').length < 1) {
-                if (data.mapsAvail) {
-                    let maplist = data.mapsAvail;
+            if ($('#mapList li').length < 2) {
+                if (serverInfo.mapsAvail) {
+                    let maplist = serverInfo.mapsAvail;
                     $("#mapList").empty();
                     for (map of maplist) {
                         var li = document.createElement("li");
@@ -67,6 +64,15 @@ $( document ).ready(() => {
                         $("#mapList").append(li);
                     }
                 }
+            }
+        } else if (data.type == "opsStart") {
+            if (data.payload.state == 'start') {
+                $('#popupCaption').text(`${data.payload.operation}ing Server`);
+                $('#popupText').text('Moment bitte!');
+                $('.container-popup').css('display', 'flex');
+            } else if (data.payload.state == 'end') {
+                $('.container-popup').css('display', 'none');
+                setupPage();
             }
         } else if (data.type == "updateProgress") {
             $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
@@ -87,6 +93,8 @@ $( document ).ready(() => {
             }
         }
     }
+    loadMaplist();
+    setupPage();
 });
 
 // Load the maplist for serverstart from maplist.txt
@@ -145,7 +153,11 @@ function setupNotLoggedIn() {
 }
 function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
-    getMaps();
+    if (socket.readyState > 2) { // if websocket not connected
+        getMaps();
+    } else if ($("#mapList li").length < 2) {
+        socket.send('infoRequest');
+    }
     $('#startMap').hide(0);
     $('#mapList').on( 'click', showPlay);
     $('#mapList').on( 'dblclick', changeMap);
@@ -179,7 +191,7 @@ function clickButton(aButton) {
         if (action != 'update') {
             setupPage();
         }
-        if(socket.readyState > 2) {
+        if (socket.readyState > 2) { // if websocket not connected
             $('.container-popup').css('display', 'none');
         }
     }).fail((err) => {
@@ -190,7 +202,7 @@ function clickButton(aButton) {
         } else {
             alert(`command ${action} failed!\nError: ${errorText}`);
         }
-        if(socket.readyState > 2) {
+        if (socket.readyState > 2) {
             $('.container-popup').css('display', 'none');
         }
     });

@@ -149,24 +149,28 @@ function reloadMaplist() {
 
 // Event Emitters
 /**
- * Emits an event if mapchange is finished
+ * Emits information on control operations.
+ */
+var controlEmitter = new events.EventEmitter();
+/**
+ * Control execution event.
+ * @event controlEmitter#exec
+ * @property {string} operation (start, stop, update, mapchange)
+ * @property {string} state (start, end)
+ *
+ * @event controlEmitter#progress
+ * @property {string} step - descripbes which step of an operation is reported.
+ * @property {int} progress - the percentage of the step that is completed.
+ */
+
+/**
+ * Emits an event if mapchange is finished.
  */
 var mapChangeEmitter = new events.EventEmitter();
 /**
  * Mapchange completed event.
  * @event mapChangeEmitter#result
- * @type {string} 'success' or another string yielding the reason for failure.
- */
-
-/**
- * Emits an event reporting progress of the Server update.
- */
-var updateEmitter = new events.EventEmitter();
-/**
- * Update Progress with step and percentage
- * @event updateEmitter#progress
- * @type {string} - Reports, which action is in progress during the update.
- * @type {int} - Integer representing the percentage of the action that is completed.
+ * @property {string} 'success' or another string yielding the reason for failure.
  */
 
 /**
@@ -324,7 +328,7 @@ function ensureAuthenticated(req, res, next) {
  */
 const app = express();
 const limit = rateLimit({
-    max: 20,// max requests
+    max: 50,// max requests
     windowMs: 60 * 1000, // 1 Minute
     message: 'Too many requests' // message to send
 });
@@ -450,23 +454,23 @@ app.get("/control", ensureAuthenticated, (req, res) => {
         updateProcess.on('data', (data) => {
             logger.debug(data);
             if (data.indexOf('Checking for available updates') != -1) {
-                updateEmitter.emit('progress', 'Checking Steam client updates', 0);
+                controlEmitter.emit('progress', 'Checking Steam client updates', 0);
             } else if (data.indexOf('Verifying installation') != -1) {
-                updateEmitter.emit('progress', 'Verifying client installation', 0);
+                controlEmitter.emit('progress', 'Verifying client installation', 0);
             } else if (data.indexOf('Logging in user') != -1) {
-                updateEmitter.emit('progress', 'Logging in steam user', 0);
+                controlEmitter.emit('progress', 'Logging in steam user', 0);
             } else if (data.indexOf('Logged in OK') != -1) {
-                updateEmitter.emit('progress', 'Login OK', 100);
+                controlEmitter.emit('progress', 'Login OK', 100);
             } else if(data.indexOf('Update state (0x') != -1) {
                 let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,3})\.\d{2}/;
                 let matches = rex.exec(data);
-                updateEmitter.emit('progress', matches[1], matches[2]);
+                controlEmitter.emit('progress', matches[1], matches[2]);
             } else if (data.indexOf('Downloading update (') != -1) {
                 let rex = /\[(.+)] Downloading update/;
                 let matches = rex.exec(data);
-                updateEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
+                controlEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
             } else if (data.indexOf('Success!') != -1) {
-                updateEmitter.emit('progress', 'Update Successful!', 100);
+                controlEmitter.emit('progress', 'Update Successful!', 100);
                 logger.verbose('update succeeded');
                 updateSuccess = true;
                 state.operationPending = 'none';
@@ -784,6 +788,7 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
     var args = req.query;
 
     if (!state.serverRunning && state.operationPending == 'none') {
+        controlEmitter.emit('exec', 'start', 'start');
         state.operationPending = 'start';
         logger.verbose('Starting server.');
         let startMap = "de_dust2";
@@ -838,16 +843,19 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
  */
 app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
     if (state.serverRunning && state.operationPending == 'none') {
+        controlEmitter.emit('exec', 'stop', 'start');
         state.operationPending = 'stop';
         logger.verbose("sending quit.");
         executeRcon('quit').then((answer) => {
             state.serverRunning = false;
             state.authenticated = false;
             res.json({ "success": true });
+            controlEmitter.emit('exec', 'stop', 'end');
             state.operationPending = 'none';
         }).catch((err) => {
             logger.error('Stopping server Failed: ' + err);
             res.status(501).json({ "error": `RCON Error: ${err.toString()}` });
+            controlEmitter.emit('exec', 'stop', 'end');
             state.operationPending = 'none';
         });
     } else if (!state.serverRunning) {
@@ -876,6 +884,7 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
  */
 app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
     if (!state.serverRunning && state.operationPending == 'none') {
+        controlEmitter.emit('exec', 'update', 'start');
         state.operationPending = 'update';
         let updateSuccess = false;
         logger.verbose('Updating Server.');
@@ -884,23 +893,23 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
         updateProcess.on('data', (data) => {
             logger.debug(data);
             if (data.indexOf('Checking for available updates') != -1) {
-                updateEmitter.emit('progress', 'Checking Steam client updates', 0);
+                controlEmitter.emit('progress', 'Checking Steam client updates', 0);
             } else if (data.indexOf('Verifying installation') != -1) {
-                updateEmitter.emit('progress', 'Verifying client installation', 0);
+                controlEmitter.emit('progress', 'Verifying client installation', 0);
             } else if (data.indexOf('Logging in user') != -1) {
-                updateEmitter.emit('progress', 'Logging in steam user', 0);
+                controlEmitter.emit('progress', 'Logging in steam user', 0);
             } else if (data.indexOf('Logged in OK') != -1) {
-                updateEmitter.emit('progress', 'Login OK', 100);
+                controlEmitter.emit('progress', 'Login OK', 100);
             } else if(data.indexOf('Update state (0x') != -1) {
                 let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,3})\.\d{2}/;
                 let matches = rex.exec(data);
-                updateEmitter.emit('progress', matches[1], matches[2]);
+                controlEmitter.emit('progress', matches[1], matches[2]);
             } else if (data.indexOf('Downloading update (') != -1) {
                 let rex = /\[(.+)] Downloading update/;
                 let matches = rex.exec(data);
-                updateEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
+                controlEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
             } else if (data.indexOf('Success!') != -1) {
-                updateEmitter.emit('progress', 'Update Successful!', 100);
+                controlEmitter.emit('progress', 'Update Successful!', 100);
                 logger.verbose('update succeeded');
                 updateSuccess = true;
                 state.operationPending = 'none';
@@ -954,6 +963,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
 app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
     var args = req.query;
     if (state.operationPending == 'none') {
+        controlEmitter.emit('exec', 'mapchange', 'start');
         state.operationPending = 'mapchange';
         // only try to change map, if it exists on the server.
         if (serverInfo.mapsAvail.includes(args.map)) {
@@ -1080,6 +1090,20 @@ if (cfg.webSockets) {
          */
         serverInfo.serverInfoChanged.on('change', sendUpdate);
 
+        /**
+         * Notifies clients of start or end of a control operation
+         * @param {string} operation (start, stop, update, mapchange)
+         * @param {string} state (start, end)
+         */
+        var sendControlNotification = (operation, state) => {
+            ws.send(`{ "type": "opsStart", "payload": { "operation": "${operation}", "state": "${state}" } }`);
+        }
+        /**
+         * Listens for execution notification of control operations.
+         * @listens controlEmitter#exec
+         */
+        controlEmitter.on('exec', sendControlNotification);
+
         /** 
          * Reports update progress to clients.
          * @param {string} action - Reports, which action is in progress during the update.
@@ -1090,9 +1114,9 @@ if (cfg.webSockets) {
         }
         /**
          * Listens for progress reporst from update process and sends them to the client.
-         * @listens updateEmitter#progress
+         * @listens controlEmitter#progress
          */
-        updateEmitter.on('progress', reportProgress);
+        controlEmitter.on('progress', reportProgress);
 
         /** 
          * Sends info on completed mapchange.
@@ -1114,7 +1138,8 @@ if (cfg.webSockets) {
          */
         ws.on('close', (code, reason) => {
             serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
-            updateEmitter.removeListener('progress', reportProgress);
+            controlEmitter.removeListener('exec', sendControlNotification);
+            controlEmitter.removeListener('progress', reportProgress);
             mapChangeEmitter.removeListener('result', sendMapchangeComplete);
         });
     });
