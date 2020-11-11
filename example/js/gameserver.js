@@ -1,15 +1,28 @@
 ﻿var address;
 var ip = window.location.hostname;
+
+// Titles for throbber window.
+var titles = { 
+    'start': 'Starting server',
+    'stop': 'Stopping server',
+    'auth': 'Authenticating RCON',
+    'update': 'Updating server',
+    'mapchange': 'Changing map'
+}
+var running = false;
+var authenticated = false;
 try {
     var socket = new WebSocket(`wss://${ip}:8091`);
 } catch (err) {
     console.error('Connection to websocket failed:\n' + err);
 }
 
+// Redirect to login page.
 function doLogin() {
      window.location.href = `${address}/login`;
 }
 
+// Sends a get Request with the headers needed for authentication with the seesion cookie.
 function sendGet(address, data, callback) {
     return $.ajax({
         type: "GET",
@@ -67,29 +80,23 @@ $( document ).ready(() => {
             }
         } else if (data.type == "opsStart") {
             if (data.payload.state == 'start') {
-                $('#popupCaption').text(`${data.payload.operation}ing Server`);
+                $('#popupCaption').text(`${titles[data.payload.operation]}`);
                 $('#popupText').text('Moment bitte!');
                 $('.container-popup').css('display', 'flex');
             } else if (data.payload.state == 'end') {
-                $('.container-popup').css('display', 'none');
+                window.setTimeout( () => {
+                    $('.container-popup').css('display', 'none');
+                }, 1500);
                 setupPage();
             }
         } else if (data.type == "updateProgress") {
             $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
-            if (data.payload.step == 'Update Successful!') {
-                window.setTimeout( () => {
-                    $('.container-popup').css('display', 'none');
-                }, 1500);
-            }
         } else if (data.type == "mapchange") {
-            if (data.payload.success) {
-                setupPage();
+            if (data.payload.success$ && ('#popupCaption').text() == 'Changing Map') {
+                socket.send('infoRequest');
                 $('.container-popup').css('display', 'none');
-            } else {
+            } else if (!data.payload.success) {
                 $('#popupText').html(`Mapchange failed!`);
-                window.setTimeout( () => {
-                    $('.container-popup').css('display', 'none');
-                }, 2000);
             }
         }
     }
@@ -114,36 +121,33 @@ function setupPage() {
     function loggedIn() {
         return Promise.resolve(sendGet(`${address}/loginStatus`));
     }
+    let running = () => {
+        return Promise.resolve(sendGet(`${address}/info/runstatus`));
+    }
+    let authStatus = () => {
+        return Promise.resolve(sendGet(`${address}/info/rconauthstatus`));
+    }
 
     let loginCheck = loggedIn();
     loginCheck.then((data) => {
         if (data.login) {
-            let running = () => {
-                return Promise.resolve(sendGet(`${address}/info/runstatus`));
-            }
-            let serverRunning = running();
-            serverRunning.then((data) => {
-                if (data.running) {
-                    let authStatus = () => {
-                        return Promise.resolve(sendGet(`${address}/info/rconauthstatus`));
-                    }
-                    let authenticated = authStatus();
-                    authenticated.then((data) => {
-                        if (data.rconauth) {
-                            setupServerRunning();
+            let authenticated = authStatus();
+            authenticated.then((data) => {
+                if (data.rconauth) {
+                    setupServerRunning();
+                } else {
+                    let serverRunning = running();
+                    serverRunning.then((data) => {
+                        if (data.running) {
+                            if (confirm('Server Running, but RCON not authenticated.\n\nTry to authenticate again?')) {
+                                sendGet(`${address}/info/authenticate`).done((data) => {
+                                    
+                                });
+                            }
                         } else {
-                            sendGet(`${address}/authenticate`).done((data) => {
-                                if (data.authenticated) {
-                                    setupServerRunning();
-                                } else {
-                                    alert('RCON not authenticated - try restarting server manually!');
-                                    setupServerStopped();
-                                }
-                            });
+                            setupServerStopped();
                         }
                     });
-                } else {
-                    setupServerStopped();
                 }
             }).catch((error) => {
                 setupServerStopped();
@@ -199,16 +203,16 @@ function setupServerStopped() {
 
 function clickButton(aButton) {
     action = aButton.value.toLowerCase();
-    $('#popupCaption').text(`${action}ing Server`);
+    $('#popupCaption').text(`${titles[action]}`);
     $('#popupText').text('Moment bitte!');
     $('.container-popup').css('display', 'flex');
     startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
-        if (action != 'update') {
-            setupPage();
-        }
         if (socket.readyState > 2) { // if websocket not connected
+            if (action != 'update') {
+                setupPage();
+            }
             $('.container-popup').css('display', 'none');
         }
     }).fail((err) => {
@@ -284,7 +288,7 @@ function showPlay(event) {
 function changeMap(event) {
     let map = event.target.innerText;
     $('#mapSelector').hide('fast');
-    $('#popupCaption').text('Changing Map');
+    $('#popupCaption').text(titles['mapchange']);
     $('.container-popup').css('display', 'flex');
     sendGet(`${address}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
