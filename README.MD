@@ -6,8 +6,12 @@ It exposes control of your server and shell functions to the internet. Although 
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
 ## NOTE:
-This Release (v0.8) changes the API end Points to facitlitate versioning of the API.
+This Release (v0.8) changes the API end Points to facilitate versioning of the API.
 The old Endpoints will be available for some time to allow for a transition time. I expect to remove them with Version 1.0.
+
+### Breaking changes:
+- mapchange completed reporting via websocket will be changed to the standard command status reporting. See below for details.
+- control?action=status is deprecated. use /control/runningstatus & /control/rconauthstatus instead.
 
 ## Install
 download the script files to and install the dependencies for nodejs
@@ -99,7 +103,7 @@ Query if the server is running or also authenticated for rcon requests. Answer i
 
 ## Information Updates via WebSocket
 A websocket is available on a configurable port to receive further information.
-Currently avialable are ServerInfo as any value changes, start/stop of commands, update-progress and completion of mapchange (on start of new map).
+Currently avialable are ServerInfo as any value changes, start/stop/fail of commands, update-progress and completion of mapchange (on start of new map).
 
 ServerInfo message looks as follows:
 ```javascript
@@ -109,7 +113,7 @@ For now, Serverinfo is always sent completely
 
 Start/stop of a command:
 ```javascript
-{ "type": "commandstatus", "payload": { "operation": <string>, "state": <"start"/"stop"> } }
+{ "type": "commandstatus", "payload": { "operation": <string>, "state": <"start"/"stop"/"fail"> } }
 ```
 Operation can be one of the following: start, stop, update, mapchange
 
@@ -118,7 +122,7 @@ UpdateProgress looks as follows:
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
 
-mapchange message:
+mapchange message (deprecated, do not use anymore):
 ```javascript
 { "type": "mapchange", "payload": { "success": true/false }
 ```
