@@ -70,15 +70,13 @@ The /control message will return a JSON-String.
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
 - start -> optional additional argument "startmap" (&startmap=mapname): { "success": true/false }
-If run without startmap, server will be started with famous de_dust2.
-- changemap -> additional argument "map" (action=changemap&map=mapname): 
-If you do not use websockets, the answer will be { "success": true/false }. true if start of new map is logged, false in case of error or after a timeout of 30 seconds.
-If you use websockets, answer will be { "success": true/false } if the rcon command to server was sauccessful or not. Completion of mapchange is sent via the websocket in the format:
-```javascript
-{ "type": "mapchange", "payload": { "success": true/false } }
-```
-- reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
 - stop -> stop the server: { "success": true/false }
+If run without startmap, server will be started with de_dust2.
+- changemap -> additional argument "map" (action=changemap&map=mapname): 
+- reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
+
+If you do not use websockets, the answer will be sent after completion of the operation.
+If you use websockets, answer will be sent right away. Progress and/or completion messages are sent via the websocket. See below for format.
 
 ### RCON
 ```javascript
@@ -93,15 +91,27 @@ $.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/serverInfo')
 ```
 Gets information on the server as JSON-String. See serverInfo.js for available data.
 
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/runstatus')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/rconauthstatus')
+```
+Query if the server is running or also authenticated for rcon requests. Answer is deleayed if a status change is in progress.
+
 ## Information Updates via WebSocket
-A websocket is available a configurable port to receive further information.
-Currently avialable are update-progress, ServerInfo as any value changes and completion of mapchange (on start of new map).
+A websocket is available on a configurable port to receive further information.
+Currently avialable are ServerInfo as any value changes, start/stop of commands, update-progress and completion of mapchange (on start of new map).
 
 ServerInfo message looks as follows:
 ```javascript
-{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())}
+{ "type": "serverInfo", "payload": {ServerInfoObject}
 ```
 For now, Serverinfo is always sent completely
+
+Start/stop of a command:
+```javascript
+{ "type": "commandstatus", "payload": { "operation": <string>, "state": <"start"/"stop"> } }
+```
+Operation can be one of the following: start, stop, update, mapchange
 
 UpdateProgress looks as follows:
 ```javascript
@@ -117,7 +127,8 @@ false is sent after a 30 sec. timeout when no "Started map" log has been receive
 ## Example
 An example of a webinterface is available in the folder "example"
 It assumes, that you run it on the same domain as the API. If you want to change that, you can do so in js/gameserver.js (see comment in the file)
-To correctly load the maplist for server start, edit the respective line in gameserver.php.
+To correctly load the maplist for server start, edit the respective line at the beginning of gameserver.js.
+The Webinterface works with and without websockets.
 
 ## Support
 If you have any questions, contact me.
