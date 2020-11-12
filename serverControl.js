@@ -750,7 +750,17 @@ app.get('/csgoapi/v1.0/info/serverInfo', ensureAuthenticated, (req, res) => {
  *     { "running": true/false}
  */
 app.get('/csgoapi/v1.0/info/runstatus', ensureAuthenticated, (req, res) => {
-    res.json({ "running": state.serverRunning });
+    if (state.operationPending == 'start' || state.operationPending == 'stop') {
+    let sendResponse = (type, state) => {
+            if (type == 'auth' && state == 'end') {
+                res.json({ "running": state.running });
+                controlEmitter.removeListener('exec', sendResponse);
+            }
+        }
+        controlEmitter.on('exec', sendResponse)
+    } else {
+        res.json({ "running": state.serverRunning });
+    }
 });
 
 /**
@@ -1115,7 +1125,7 @@ if (cfg.webSockets) {
          * @param {string} state (start, end)
          */
         var sendControlNotification = (operation, state) => {
-            ws.send(`{ "type": "opsStart", "payload": { "operation": "${operation}", "state": "${state}" } }`);
+            ws.send(`{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${state}" } }`);
         }
         /**
          * Listens for execution notification of control operations.

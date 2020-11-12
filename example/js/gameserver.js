@@ -1,5 +1,7 @@
-﻿var address;
-var ip = window.location.hostname;
+﻿// Change here if you don't host the webInterfae on the same host as the NodeJS API
+var host = window.location.hostname;
+var address =`https://${host}:8090/csgoapi/v1.0`;
+var maplistFile = './maplist.txt';
 
 // Titles for throbber window.
 var titles = { 
@@ -12,7 +14,7 @@ var titles = {
 var running = false;
 var authenticated = false;
 try {
-    var socket = new WebSocket(`wss://${ip}:8091`);
+    var socket = new WebSocket(`wss://${host}:8091`);
 } catch (err) {
     console.error('Connection to websocket failed:\n' + err);
 }
@@ -39,8 +41,6 @@ function sendGet(address, data, callback) {
 
 // what to do after document is loaded.
 $( document ).ready(() => {
-    // Change here if you don't host the webInterfae on the same host as the NodeJS API
-    address = `https://${ip}:8090/csgoapi/v1.0`;
     socket.onopen = () => {
         socket.send('infoRequest');
     }
@@ -78,7 +78,7 @@ $( document ).ready(() => {
                     }
                 }
             }
-        } else if (data.type == "opsStart") {
+        } else if (data.type == "commandstatus") {
             if (data.payload.state == 'start') {
                 $('#popupCaption').text(`${titles[data.payload.operation]}`);
                 $('#popupText').text('Moment bitte!');
@@ -107,7 +107,7 @@ $( document ).ready(() => {
 // Load the maplist for serverstart from maplist.txt
 function loadMaplist() {
     // The Maplist file can be taken from the csgo folder.
-    $.get('./maplist.txt', (data) => {
+    $.get(maplistFile, (data) => {
         let lines = data.split(/\r\n|\n/);
         lines.forEach( (map) => {
             $("#mapAuswahl").append(`<option value="${map}">${map}</option>`);
