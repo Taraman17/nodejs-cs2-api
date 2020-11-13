@@ -80,7 +80,7 @@ If run without startmap, server will be started with de_dust2.
 - reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
 
 If you do not use websockets, the answer will be sent after completion of the operation.
-If you use websockets, answer will be sent right away. Progress and/or completion messages are sent via the websocket. See below for format.
+If you use websockets, answer will be sent right away. Progress and/or completion messages are sent via the websocket. See below for format. Exception is server start, since RCON-authentication is a vital step for the api, 'start' will always return "success" only after authentication finished.
 
 ### RCON
 ```javascript
