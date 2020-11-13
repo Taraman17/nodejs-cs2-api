@@ -47,6 +47,7 @@ $( document ).ready(() => {
 
     socket.onmessage = (e) => {
         let data = JSON.parse(e.data);
+        console.log(data);
 
         if (data.type == "serverInfo") {
             let serverInfo = data.payload;
@@ -83,13 +84,13 @@ $( document ).ready(() => {
                 $('#popupCaption').text(`${titles[data.payload.operation]}`);
                 $('#popupText').text('Moment bitte!');
                 $('.container-popup').css('display', 'flex');
-            } else if (data.payload.state == 'end') {
+            } else if (data.payload.state == 'end' && data.payload.operation != 'start') {
                 window.setTimeout( () => {
                     $('.container-popup').css('display', 'none');
                 }, 1500);
                 setupPage();
             }
-        } else if (data.type == "updateProgress") {
+        } else if (data.type == "progress") {
             $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
         } else if (data.type == "mapchange") {
             if (data.payload.success$ && ('#popupCaption').text() == 'Changing Map') {
