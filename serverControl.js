@@ -44,15 +44,15 @@ const config = require('./config.js');
 
 /**
  * Stores the state of the controlled server-instance.
- * @typedef  state
+ * @typedef  nodejsapiState
  * @property {string}  operationPending -  1 of: none, start, stop, mapchange, update, auth.
  * @property {boolean}  serverRunning    - Is the server process running.
  * @property {object}   serverRcon       - rcon-srcds instance for the server.
  * @property {boolean}  authenticated    - Is the rcon instance authenticated with the server.
  */
  
-/** @type {state} */
-var state = {
+/** @type {nodejsapiState} */
+var nodejsapiState = {
     'operationPending': 'none',
     'serverRunning': false,
     'serverRcon': undefined,
@@ -110,7 +110,7 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
       return;
     }
     if (stdout.match(/srcds_linux/) != null) {
-      state.serverRunning = true;
+      nodejsapiState.serverRunning = true;
       logger.verbose('Found running server');
       authenticate().then((data) => {
           logger.verbose(`authentication ${data.authenticated}`);
@@ -170,11 +170,11 @@ var controlEmitter = new events.EventEmitter();
  * @listens controlEmitter#exec
  */
 controlEmitter.on('exec', (operation, action) => {
-    state.operationPending = (action == 'start') ? operation : 'none';
-    logger.debug('state.operationPending = ' + state.operationPending);
+    nodejsapiState.operationPending = (action == 'start') ? operation : 'none';
+    logger.debug('nodejsapiState.operationPending = ' + nodejsapiState.operationPending);
     if (operation == 'auth' && action == 'end') {
-        state.authenticated = true;
-        logger.debug('state.authenticated = ' + state.authenticated);
+        nodejsapiState.authenticated = true;
+        logger.debug('nodejsapiState.authenticated = ' + nodejsapiState.authenticated);
         logger.verbose("RCON Authenticate success");
         queryMaxRounds();
         // Get current and available maps and store them.
@@ -198,16 +198,16 @@ controlEmitter.on('exec', (operation, action) => {
  * @fires controlEmitter.exec
  */
 function authenticate() {
-    if (state.operationPending != 'auth') {
+    if (nodejsapiState.operationPending != 'auth') {
         controlEmitter.emit('exec', 'auth', 'start');
         return new Promise((resolve, reject) => {
-            if (!state.authenticated) {
+            if (!nodejsapiState.authenticated) {
                 logger.verbose("RCON authenticating...");
                 // since this API is designed to run on the same machine as the server keeping 
                 // default here which is 'localhost'
-                state.serverRcon = new rcon();
+                nodejsapiState.serverRcon = new rcon();
                 logger.debug('sending authentication request');
-                state.serverRcon.authenticate(cfg.rconPass).then(() => {
+                nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {
                     logger.debug('received authentication');
                     controlEmitter.emit('exec', 'auth', 'end');
                     resolve({ "authenticated": true });
@@ -231,11 +231,11 @@ function authenticate() {
         });
     } else {
         return new Promise((resolve, reject) => {
-            if (state.authenticated) {
+            if (nodejsapiState.authenticated) {
                 logger.verbose('Already authenticated.');
                 resolve({ "authenticated": true });
             } else {
-                logger.verbose(`Rcon authentication cancelled due to other operation Pending: ${state.operationPending}`);
+                logger.verbose(`Rcon authentication cancelled due to other operation Pending: ${nodejsapiState.operationPending}`);
                 reject({ "authenticated": false });
             }
         });
@@ -251,7 +251,7 @@ function authenticate() {
 function executeRcon (message) {
     logger.debug(`Executing rcon: ${message}`);
     return new Promise((resolve, reject) => {
-        state.serverRcon.execute(message).then((answer) => {
+        nodejsapiState.serverRcon.execute(message).then((answer) => {
             resolve(answer);
         }).catch((err) => {
             logger.error(`RCON Error: ${err}`);
@@ -381,8 +381,8 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     var args = req.query;
 
     // Start Server
-    if (args.action == "start" && !state.serverRunning && state.operationPending == 'none') {
-        state.operationPending = 'start';
+    if (args.action == "start" && !nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
+        nodejsapiState.operationPending = 'start';
         logger.verbose('Starting server.');
         let startMap =  "de_dust2";
         const safe = /^[a-zA-Z0-9-_]*$/;
@@ -401,8 +401,8 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 logger.error('Error Code: '+error.code);
                 logger.error('Signal received: '+error.signal);
                 logger.error(stderr);
-                state.serverRunning = false;
-                state.operationPending = 'none';
+                nodejsapiState.serverRunning = false;
+                nodejsapiState.operationPending = 'none';
             } else {
                 logger.verbose('screen started');
                 controlEmitter.on('exec', function callback (operation, action) {
@@ -413,33 +413,33 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                         controlEmitter.removeListener('exec', callback);
                     }
                 });
-                state.serverRunning = true;
-                state.operationPending = 'none';
+                nodejsapiState.serverRunning = true;
+                nodejsapiState.operationPending = 'none';
             }
         });
 
     // Stop Server
-    } else if (args.action == "stop" && state.serverRunning && state.operationPending == 'none') {
-        state.operationPending = 'stop';
+    } else if (args.action == "stop" && nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
+        nodejsapiState.operationPending = 'stop';
         logger.verbose("senaction quit.");
         executeRcon('quit').then((answer) => {
-            state.serverRunning = false;
-            state.authenticated = false;
+            nodejsapiState.serverRunning = false;
+            nodejsapiState.authenticated = false;
             res.writeHeader(200, {"Content-Type": "application/json"});
-            res.write(`{ "success": ${!state.serverRunning} }`);
+            res.write(`{ "success": ${!nodejsapiState.serverRunning} }`);
             res.end();
-            state.operationPending = 'none';
+            nodejsapiState.operationPending = 'none';
         }).catch((err) => {
             logger.error('Stopping server Failed: ' + err);
             res.writeHeader(200, {"Content-Type": "application/json"});
-            res.write(`{ "success": ${!state.serverRunning} }`);
+            res.write(`{ "success": ${!nodejsapiState.serverRunning} }`);
             res.end();
-            state.operationPending = 'none';
+            nodejsapiState.operationPending = 'none';
         });
 
     //Update Server
-    } else if (args.action == "update" && !state.serverRunning && state.operationPending == 'none') {
-        state.operationPending = 'update';
+    } else if (args.action == "update" && !nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
+        nodejsapiState.operationPending = 'update';
         let updateSuccess = false;
         logger.verbose('Updating Server.');
         let updateProcess = pty.spawn(cfg.updateCommand, cfg.updateArguments);
@@ -466,7 +466,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                 controlEmitter.emit('progress', 'Update Successful!', 100);
                 logger.verbose('update succeeded');
                 updateSuccess = true;
-                state.operationPending = 'none';
+                nodejsapiState.operationPending = 'none';
             }
         });
 
@@ -479,26 +479,26 @@ app.get("/control", ensureAuthenticated, (req, res) => {
             }
             res.end();
             updateProcess.removeAllListeners();
-            state.operationPending = 'none';
+            nodejsapiState.operationPending = 'none';
         } else {
             updateProcess.once('close', (code) => {
                 res.writeHeader(200, {"Content-Type": "application/json"});
                 res.write(`{ "success": ${updateSuccess} }`);
                 res.end();
                 updateProcess.removeAllListeners();
-                state.operationPending = 'none';
+                nodejsapiState.operationPending = 'none';
             });
         }
 
     // Send Status
     } else if (args.action == "status") {
         res.writeHeader(200, {"Content-Type": "application/json"});
-        res.write(`{ "running": ${state.serverRunning && state.authenticated} }`);
+        res.write(`{ "running": ${nodejsapiState.serverRunning && nodejsapiState.authenticated} }`);
         res.end();
 
     //change map
-    } else if (args.action == "changemap" && !state.operationPending == 'none') {
-        state.operationPending = 'mapchange';
+    } else if (args.action == "changemap" && !nodejsapiState.operationPending == 'none') {
+        nodejsapiState.operationPending = 'mapchange';
         res.writeHeader(200, { 'Content-Type': 'application/json' });
         // only try to change map, if it exists on the server.
         if (serverInfo.mapsAvail.includes(args.map)) {
@@ -509,7 +509,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                         res.write(`{ "success": ${result == 'success'} }`);
                         res.end();
                         clearTimeout(mapchangeTimeout);
-                        state.operationPending = 'none';
+                        nodejsapiState.operationPending = 'none';
                     };
                     mapChangeEmitter.once('result', sendCompleted);
 
@@ -518,7 +518,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                         mapChangeEmitter.emit('result', 'timeout');
                         res.write(`{ "success": false }`);
                         res.end();
-                        state.operationPending = 'none';
+                        nodejsapiState.operationPending = 'none';
                     }, 30000);
                 } else {
                     res.write(`{ "success": true }`);
@@ -526,25 +526,25 @@ app.get("/control", ensureAuthenticated, (req, res) => {
                     // If the mapchange is successful, cancel the timeout.
                     var removeTimeout = (result) => {
                         clearTimeout(mapchangeTimeout);
-                        state.operationPending = 'none';
+                        nodejsapiState.operationPending = 'none';
                     };
                     mapChangeEmitter.once('result', removeTimeout);
 
                     // A mapchange should not take longer than 30 sec.
                     let mapchangeTimeout = setTimeout( () => {
                         mapChangeEmitter.emit('result', 'timeout');
-                        state.operationPending = 'none';
+                        nodejsapiState.operationPending = 'none';
                     }, 30000);
                 }
             }).catch((err) => {
                 res.write(`{ "success": false }`);
                 res.end();
-                state.operationPending = 'none';
+                nodejsapiState.operationPending = 'none';
             });
         } else {
             res.write(`{ "success": false }`);
             res.end();
-            state.operationPending = 'none';
+            nodejsapiState.operationPending = 'none';
         }
 
     // DEPRECATED - will be removed in future release, do not use.
@@ -597,7 +597,7 @@ app.get("/rcon", ensureAuthenticated, (req, res) => {
 app.get("/serverInfo", ensureAuthenticated, (req, res) => {
     logger.verbose('Processing Serverinfo request.');
     res.writeHeader(200, {"Content-Type": "application/json"});
-    if (state.authenticated) {
+    if (nodejsapiState.authenticated) {
         res.write(JSON.stringify(serverInfo.getAll()));
         res.end();
     } else {
@@ -713,11 +713,11 @@ app.get('/csgoapi/v1.0/authenticate', ensureAuthenticated, (req, res) => {
  */
 app.get('/csgoapi/v1.0/info/serverInfo', ensureAuthenticated, (req, res) => {
     logger.verbose('Processing Serverinfo request.');
-    if (state.authenticated) {
+    if (nodejsapiState.authenticated) {
         res.json(serverInfo.getAll());
-    } else if (!state.running) {
+    } else if (!nodejsapiState.running) {
         res.status(503).json({ "error": "CS:GO Server not running." });
-    } else if (!state.authenticated) {
+    } else if (!nodejsapiState.authenticated) {
         res.status(503).json({ "error": "RCON not authenticated." });
     }
 });
@@ -736,16 +736,16 @@ app.get('/csgoapi/v1.0/info/serverInfo', ensureAuthenticated, (req, res) => {
  *     { "running": true/false}
  */
 app.get('/csgoapi/v1.0/info/runstatus', ensureAuthenticated, (req, res) => {
-    if (state.operationPending == 'start' || state.operationPending == 'stop') {
+    if (nodejsapiState.operationPending == 'start' || nodejsapiState.operationPending == 'stop') {
     let sendResponse = (type, action) => {
             if (type == 'auth' && action == 'end') {
-                res.json({ "running": state.running });
+                res.json({ "running": nodejsapiState.running });
                 controlEmitter.removeListener('exec', sendResponse);
             }
         }
         controlEmitter.on('exec', sendResponse)
     } else {
-        res.json({ "running": state.serverRunning });
+        res.json({ "running": nodejsapiState.serverRunning });
     }
 });
 
@@ -763,16 +763,16 @@ app.get('/csgoapi/v1.0/info/runstatus', ensureAuthenticated, (req, res) => {
  *     { "rconauth": true/false}
  */
 app.get('/csgoapi/v1.0/info/rconauthstatus', ensureAuthenticated, (req, res) => {
-    if (state.operationPending == 'auth') {
+    if (nodejsapiState.operationPending == 'auth') {
         let sendResponse = (type, action) => {
             if (type == 'auth' && action == 'end') {
-                res.json({ "rconauth": state.authenticated });
+                res.json({ "rconauth": nodejsapiState.authenticated });
                 controlEmitter.removeListener('exec', sendResponse);
             }
         }
         controlEmitter.on('exec', sendResponse)
     } else {
-        res.json({ "rconauth": state.authenticated });
+        res.json({ "rconauth": nodejsapiState.authenticated });
     }
 });
 
@@ -800,7 +800,7 @@ app.get('/csgoapi/v1.0/info/rconauthstatus', ensureAuthenticated, (req, res) => 
 app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
     var args = req.query;
 
-    if (!state.serverRunning && state.operationPending == 'none') {
+    if (!nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
         controlEmitter.emit('exec', 'start', 'start');
         logger.verbose('Starting server.');
         let startMap = 'de_dust2';
@@ -818,28 +818,28 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
                 logger.error('Error Code: '+error.code);
                 logger.error('Signal received: '+error.signal);
                 logger.error(stderr);
-                state.serverRunning = false;
+                nodejsapiState.serverRunning = false;
                 controlEmitter.emit('exec', 'start', 'fail');
             } else {
                 logger.verbose('screen started');
                 controlEmitter.on('exec', function startCallback (operation, action) {
-                    if (operation == 'auth' && action == 'end' && state.authenticated == true) {
+                    if (operation == 'auth' && action == 'end' && nodejsapiState.authenticated == true) {
                         controlEmitter.emit('exec', 'start', 'end');
                         res.json({ "success": true });
                         controlEmitter.removeListener('exec', startCallback);
-                    } else if (operation == 'auth' && action == 'end' && state.authenticated == false) {
+                    } else if (operation == 'auth' && action == 'end' && nodejsapiState.authenticated == false) {
                         res.status(501).json({ "error": "RCON Authentication failed." });
                         controlEmitter.emit('exec', 'start', 'fail');
                         controlEmitter.removeListener('exec', startCallback);
                     }
                 });
-                state.serverRunning = true;
+                nodejsapiState.serverRunning = true;
             }
         });
-    } else if (state.serverRunning) {
+    } else if (nodejsapiState.serverRunning) {
         res.status(503).json({ "error": "Server already running." });
-    } else if (state.operationPending != 'none') {
-        res.status(503).json({ "error": `Another Operation is Pending: ${state.operationPending}` });
+    } else if (nodejsapiState.operationPending != 'none') {
+        res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
 
@@ -861,12 +861,12 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
  *     { "error": "Server not running" }
  */
 app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
-    if (state.serverRunning && state.operationPending == 'none') {
+    if (nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
         controlEmitter.emit('exec', 'stop', 'start');
         logger.verbose("senaction quit.");
         executeRcon('quit').then((answer) => {
-            state.serverRunning = false;
-            state.authenticated = false;
+            nodejsapiState.serverRunning = false;
+            nodejsapiState.authenticated = false;
             res.json({ "success": true });
             controlEmitter.emit('exec', 'stop', 'end');
         }).catch((err) => {
@@ -874,10 +874,10 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
             res.status(501).json({ "error": `RCON Error: ${err.toString()}` });
             controlEmitter.emit('exec', 'stop', 'end');
         });
-    } else if (!state.serverRunning) {
+    } else if (!nodejsapiState.serverRunning) {
         res.status(503).json({ "error": "Server not running." });
-    } else if (state.operationPending != 'none') {
-        res.status(503).json({ "error": `Another Operation is Pending: ${state.operationPending}` });
+    } else if (nodejsapiState.operationPending != 'none') {
+        res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
 
@@ -899,7 +899,7 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
  *     { "error": "Update could not be started." }
  */
 app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
-    if (!state.serverRunning && state.operationPending == 'none') {
+    if (!nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
         controlEmitter.emit('exec', 'update', 'start');
         let updateSuccess = false;
         logger.verbose('Updating Server.');
@@ -923,7 +923,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
                 let rex = /\[(.+)] Downloaaction update/;
                 let matches = rex.exec(data);
                 controlEmitter.emit('progress', 'Updating Steam client', matches[1].slice(0, -1));
-            } else if (data.indexOf('Succcess!') != -1) {
+            } else if (data.indexOf('Success!') != -1) {
                 controlEmitter.emit('progress', 'Update successful!', 100);
                 logger.verbose('Update succeeded');
                 updateSuccess = true;
@@ -956,10 +956,10 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
             res.status(501).json({ "error": "Update could not be started." });
             controlEmitter.emit('exec', 'update', 'end');
         }
-    } else if (state.serverRunning) {
+    } else if (nodejsapiState.serverRunning) {
         res.status(503).json({ "error": "Server is running - stop before updating" });
-    } else if (state.operationPending != 'none') {
-        res.status(503).json({ "error": `Another Operation is Pending: ${state.operationPending}` });
+    } else if (nodejsapiState.operationPending != 'none') {
+        res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
 
@@ -983,7 +983,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
  */
 app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
     var args = req.query;
-    if (state.operationPending == 'none') {
+    if (nodejsapiState.operationPending == 'none') {
         controlEmitter.emit('exec', 'mapchange', 'start');
         // only try to change map, if it exists on the server.
         if (serverInfo.mapsAvail.includes(args.map)) {
@@ -1029,7 +1029,7 @@ app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
             controlEmitter.emit('exec', 'mapchange', 'end');
         }
     } else {
-        res.status(503).json({ "error": `Another Operation is Pending: ${state.operationPending}` });
+        res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
 
@@ -1117,7 +1117,7 @@ if (cfg.webSockets) {
         /**
          * Notifies clients of start or end of a control operation
          * @param {string} operation (start, stop, update, mapchange)
-         * @param {string} state (start, end)
+         * @param {string} action (start, end)
          */
         var sendControlNotification = (operation, action) => {
             ws.send(`{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${action}" } }`);
@@ -1196,10 +1196,12 @@ var receiver = new logReceiver.LogReceiver(logOptions);
 receiver.on('data', (data) => {
     if (data.isValid) {
         // Start authentication, when not authenticated.
-        if ((data.message.indexOf('Log file started') != -1) && !state.authenticated) {
+        if ((data.message.indexOf('Log file started') != -1) && !nodejsapiState.authenticated) {
             // Start of logfile
             // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
             logger.verbose('start authenticating RCON');
+            // Since authentication is a vital step for the API to work, we start it automatically
+            // once the server runs.
             authenticate().then((data) => {
                 logger.verbose(`authentication ${data.authenticated}`);
             }).catch((data) => {
@@ -1216,7 +1218,8 @@ receiver.on('data', (data) => {
             let mapstring = matches[1];
             mapstring = cutMapName(mapstring);
             serverInfo.map = mapstring;
-            if (state.operationPending == 'mapchange') {
+            // since 'started map' is also reported on server-start, only emit on mapchange.
+            if (nodejsapiState.operationPending == 'mapchange') {
                 controlEmitter.emit('exec', 'mapchange', 'end');
             }
             logger.verbose(`Started map: ${mapstring}`);

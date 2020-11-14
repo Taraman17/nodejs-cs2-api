@@ -47,7 +47,6 @@ $( document ).ready(() => {
 
     socket.onmessage = (e) => {
         let data = JSON.parse(e.data);
-        console.log(data);
 
         if (data.type == "serverInfo") {
             let serverInfo = data.payload;
@@ -119,25 +118,19 @@ function loadMaplist() {
 // Setup the Elements according to server status.
 function setupPage() {
     $('#popupCaption').text('Querying Server');
-    function loggedIn() {
-        return Promise.resolve(sendGet(`${address}/loginStatus`));
-    }
-    let running = () => {
-        return Promise.resolve(sendGet(`${address}/info/runstatus`));
-    }
-    let authStatus = () => {
-        return Promise.resolve(sendGet(`${address}/info/rconauthstatus`));
+    getPromise = (path) => {
+        return Promise.resolve(sendGet(`${address}/${path}`));
     }
 
-    let loginCheck = loggedIn();
+    let loginCheck = getPromise('loginStatus');
     loginCheck.then((data) => {
         if (data.login) {
-            let authenticated = authStatus();
+            let authenticated = getPromise('info/rconauthstatus');
             authenticated.then((data) => {
                 if (data.rconauth) {
                     setupServerRunning();
                 } else {
-                    let serverRunning = running();
+                    let serverRunning = getPromise('info/runstatus');
                     serverRunning.then((data) => {
                         if (data.running) {
                             if (confirm('Server Running, but RCON not authenticated.\n\nTry to authenticate again?')) {
@@ -175,7 +168,7 @@ function setupNotLoggedIn() {
 }
 function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
-    if (socket.readyState > 2) { // if websocket not connected
+    if (socket.readyState != 1) { // if websocket not connected
         getMaps();
     } else if ($("#mapList li").length < 2) {
         socket.send('infoRequest');
@@ -210,7 +203,7 @@ function clickButton(aButton) {
     startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
-        if (socket.readyState > 2) { // if websocket not connected
+        if (socket.readyState != 1) { // if websocket not connected
             if (action != 'update') {
                 setupPage();
             }
@@ -224,7 +217,7 @@ function clickButton(aButton) {
         } else {
             alert(`command ${action} failed!\nError: ${errorText}`);
         }
-        if (socket.readyState > 2) {
+        if (socket.readyState != 1) {
             $('.container-popup').css('display', 'none');
         }
     });
