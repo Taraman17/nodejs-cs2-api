@@ -106,17 +106,17 @@ if (cfg.logLevel == 'debug') {
 // check for running Server on Startup
 exec('/bin/ps -a', (error, stdout, stderr) => {
     if (error) {
-      console.error(`exec error: ${error}`);
-      return;
+        logger.error(`exec error: ${error}`);
+        return;
     }
     if (stdout.match(/srcds_linux/) != null) {
-      nodejsapiState.serverRunning = true;
-      logger.verbose('Found running server');
-      authenticate().then((data) => {
-          logger.verbose(`authentication ${data.authenticated}`);
-      }).catch((data) => {
-          logger.verbose(`authentication ${data.authenticated}`);
-      });
+        nodejsapiState.serverRunning = true;
+        logger.verbose('Found running server');
+        authenticate().then((data) => {
+            logger.verbose(`authentication ${data.authenticated}`);
+        }).catch((data) => {
+            logger.verbose(`authentication ${data.authenticated}`);
+        });
     }
 });
 
@@ -879,6 +879,45 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
     } else if (nodejsapiState.operationPending != 'none') {
         res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
+});
+
+/**
+ * @apiDescription Kill CS:GO Server Process in case no RCON connection.
+ *
+ * @api {get} /csgoapi/v1.0/control/kill
+ * @apiVersion 1.0
+ * @apiName Kill
+ * @apiGroup Control
+ 
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 501 Service Unavailable
+ *     { "error": "Could not find csgo server process" }
+ */
+ app.get('/csgoapi/v1.0/control/kill', ensureAuthenticated, (req, res) => {
+    exec('/bin/ps -a |grep srcds_linux', (error, stdout, stderr) => {
+        if (error) {
+            logger.error(`exec error: ${error}`);
+            res.status(501).json({ "error": "Could not find csgo server process" });
+        } else if (stdout.match(/srcds_linux/) != null) {
+            let pid = stdout.split(/\s+/)[1];
+            exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
+                if (error) {
+                    res.status(501).json({ "error": "Could not kill csgo server process" });
+                } else {
+                    // reset API-State
+                    nodejsapiState.running = false;
+                    nodejsapiState.authenticated = false;
+                    nodejsapiState.serverRcon = undefined;
+                    res.json({ "success": true });
+                }
+            });
+        }
+    });
 });
 
 /**
