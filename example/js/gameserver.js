@@ -1,9 +1,30 @@
-﻿var address;
+﻿// Change here if you don't host the webInterfae on the same host as the NodeJS API
+var host = window.location.hostname;
+var address =`https://${host}:8090/csgoapi/v1.0`;
+var maplistFile = './maplist.txt';
 
+// Titles for throbber window.
+var titles = { 
+    'start': 'Starting server',
+    'stop': 'Stopping server',
+    'auth': 'Authenticating RCON',
+    'update': 'Updating server',
+    'mapchange': 'Changing map'
+}
+var running = false;
+var authenticated = false;
+try {
+    var socket = new WebSocket(`wss://${host}:8091`);
+} catch (err) {
+    console.error('Connection to websocket failed:\n' + err);
+}
+
+// Redirect to login page.
 function doLogin() {
      window.location.href = `${address}/login`;
 }
 
+// Sends a get Request with the headers needed for authentication with the seesion cookie.
 function sendGet(address, data, callback) {
     return $.ajax({
         type: "GET",
@@ -20,17 +41,10 @@ function sendGet(address, data, callback) {
 
 // what to do after document is loaded.
 $( document ).ready(() => {
-    // Change here if you don't host the webInterfae on the same host as the NodeJS API
-    let ip = window.location.hostname;
-    address = `https://${ip}:8090`;
-
-    loadMaplist();
-    setupPage();
-
-    var socket = new WebSocket(`wss://${ip}:8091`);
     socket.onopen = () => {
         socket.send('infoRequest');
     }
+
     socket.onmessage = (e) => {
         let data = JSON.parse(e.data);
 
@@ -53,40 +67,47 @@ $( document ).ready(() => {
                     $(`#${player.team.toLowerCase()}Players`).show(0);
                 }
             }
-            if ($('#mapList li').length < 1) {
-                let maplist = data.mapsAvail;
-                $("#mapList").empty();
-                for (map of maplist) {
-                    var li = document.createElement("li");
-                    li.appendChild(document.createTextNode(map));
-                    $("#mapList").append(li);
+            if ($('#mapList li').length < 2) {
+                if (serverInfo.mapsAvail) {
+                    let maplist = serverInfo.mapsAvail;
+                    $("#mapList").empty();
+                    for (map of maplist) {
+                        var li = document.createElement("li");
+                        li.appendChild(document.createTextNode(map));
+                        $("#mapList").append(li);
+                    }
                 }
             }
-        } else if (data.type == "updateProgress") {
-            $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
-            if (data.payload.step == 'Update Successful!') {
+        } else if (data.type == "commandstatus") {
+            if (data.payload.state == 'start') {
+                $('#popupCaption').text(`${titles[data.payload.operation]}`);
+                $('#popupText').text('Moment bitte!');
+                $('.container-popup').css('display', 'flex');
+            } else if (data.payload.state == 'end' && data.payload.operation != 'start') {
                 window.setTimeout( () => {
                     $('.container-popup').css('display', 'none');
                 }, 1500);
-            }
-        } else if (data.type == "mapchange") {
-            if (data.payload.success) {
                 setupPage();
+            }
+        } else if (data.type == "progress") {
+            $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
+        } else if (data.type == "mapchange") {
+            if (data.payload.success$ && ('#popupCaption').text() == 'Changing Map') {
+                socket.send('infoRequest');
                 $('.container-popup').css('display', 'none');
-            } else {
+            } else if (!data.payload.success) {
                 $('#popupText').html(`Mapchange failed!`);
-                window.setTimeout( () => {
-                    $('.container-popup').css('display', 'none');
-                }, 2000);
             }
         }
     }
+    loadMaplist();
+    setupPage();
 });
 
 // Load the maplist for serverstart from maplist.txt
 function loadMaplist() {
     // The Maplist file can be taken from the csgo folder.
-    $.get('./maplist.txt', (data) => {
+    $.get(maplistFile, (data) => {
         let lines = data.split(/\r\n|\n/);
         lines.forEach( (map) => {
             $("#mapAuswahl").append(`<option value="${map}">${map}</option>`);
@@ -97,22 +118,30 @@ function loadMaplist() {
 // Setup the Elements according to server status.
 function setupPage() {
     $('#popupCaption').text('Querying Server');
-    function loggedIn() {
-        return Promise.resolve(sendGet(`${address}/loginStatus`));
+    getPromise = (path) => {
+        return Promise.resolve(sendGet(`${address}/${path}`));
     }
 
-    let loginCheck = loggedIn();
+    let loginCheck = getPromise('loginStatus');
     loginCheck.then((data) => {
         if (data.login) {
-            function running() {
-                return Promise.resolve(sendGet(`${address}/control`, `action=status`));
-            }
-            let serverRunning = running();
-            serverRunning.then((data) => {
-                if (data.running) {
+            let authenticated = getPromise('info/rconauthstatus');
+            authenticated.then((data) => {
+                if (data.rconauth) {
                     setupServerRunning();
                 } else {
-                    setupServerStopped();
+                    let serverRunning = getPromise('info/runstatus');
+                    serverRunning.then((data) => {
+                        if (data.running) {
+                            if (confirm('Server Running, but RCON not authenticated.\n\nTry to authenticate again?')) {
+                                sendGet(`${address}/info/authenticate`).done((data) => {
+                                    
+                                });
+                            }
+                        } else {
+                            setupServerStopped();
+                        }
+                    });
                 }
             }).catch((error) => {
                 setupServerStopped();
@@ -139,7 +168,11 @@ function setupNotLoggedIn() {
 }
 function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
-    getMaps();
+    if (socket.readyState != 1) { // if websocket not connected
+        getMaps();
+    } else if ($("#mapList li").length < 2) {
+        socket.send('infoRequest');
+    }
     $('#startMap').hide(0);
     $('#mapList').on( 'click', showPlay);
     $('#mapList').on( 'dblclick', changeMap);
@@ -162,30 +195,30 @@ function setupServerStopped() {
     $('#mapSelector').hide('fast');
 }
 
-function doUpdate(aButton) {
-    action = aButton.value.toLowerCase();
-    $('#popupCaption').text(`Updating Server`);
-    $('#popupText').text('Moment bitte!');
-    $('.container-popup').css('display', 'flex');
-
-    sendGet(`${address}/control`, `action=update`, ( data ) => {
-        if(!data.success) {
-            alert('command' + action + ' failed!');
-        }
-    });
-}
-
 function clickButton(aButton) {
     action = aButton.value.toLowerCase();
-    $('#popupCaption').text(`${action}ing Server`);
+    $('#popupCaption').text(`${titles[action]}`);
     $('#popupText').text('Moment bitte!');
     $('.container-popup').css('display', 'flex');
     startMap = document.getElementById('mapAuswahl').value;
 
-    sendGet(`${address}/control`, `action=${action}&startmap=${startMap}`, ( data ) => {
-        setupPage();
-        if(!data.success) {
-            alert('command' + action + ' failed!');
+    sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
+        if (socket.readyState != 1) { // if websocket not connected
+            if (action != 'update') {
+                setupPage();
+            }
+            $('.container-popup').css('display', 'none');
+        }
+    }).fail((err) => {
+        let errorText = err.responseJSON.error;
+        if (errorText.indexOf('Another Operation is pending:') != -1) {
+            let operation = errorText.split(':')[1];
+            alert(`${operation} running.\nTry again in a moment.`);
+        } else {
+            alert(`command ${action} failed!\nError: ${errorText}`);
+        }
+        if (socket.readyState != 1) {
+            $('.container-popup').css('display', 'none');
         }
     });
 }
@@ -215,7 +248,7 @@ function movePlayer(event) {
 
 function getMaps() {
     function getServerInfo() {
-        return Promise.resolve(sendGet(`${address}/serverInfo`));
+        return Promise.resolve(sendGet(`${address}/info/serverInfo`));
     }
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
@@ -249,9 +282,9 @@ function showPlay(event) {
 function changeMap(event) {
     let map = event.target.innerText;
     $('#mapSelector').hide('fast');
-    $('#popupCaption').text('Changing Map');
+    $('#popupCaption').text(titles['mapchange']);
     $('.container-popup').css('display', 'flex');
-    sendGet(`${address}/control`, `action=changemap&map=${map}`, (data) => {
+    sendGet(`${address}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
             $('#popupText').html(`Changing map to ${map}`);
         } else {

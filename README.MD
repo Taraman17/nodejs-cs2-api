@@ -5,16 +5,25 @@ The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
+## NOTE:
+This Release (v0.8) changes the API end Points to facilitate versioning of the API.
+The old Endpoints will be available for some time to allow for a transition time. I expect to remove them with Version 1.0.
+
+### Breaking changes:
+- mapchange completed reporting via websocket will be changed to the standard command status reporting. See below for details.
+- control?action=status is deprecated. use /control/runningstatus & /control/rconauthstatus instead.
+
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver express express-session cors passport passport-steam node-pty ws 
+npm install --save rcon-srcds srcds-log-receiver express express-session cors passport passport-steam node-pty ws winston winston-daily-rotate-file
 ```
 
 ## Configuration
 The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 9871
 ```
 log on
+sv_logecho 1
 mp_logfile 1
 mp_logdetail 3
 mp_logmessages 1
@@ -45,65 +54,76 @@ For better readability, $.get() is used in the following examples
 
 ### Login / Logout
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/login')
-$.get('http://<your-servers-address>:<your-port>/logout')
-$.get('http://<your-servers-address>:<your-port>/loginStatus')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/login')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/logout')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/loginStatus')
 ```
 
-For Authentication the API redirects to the Steam login page by calling '/login'
-After authentication there, it will return to '/loginStatus' by default, returning { "login": true/false }.
+For Authentication the API redirects to the Steam login page by calling '/csgoapi/v1.0/login'
+After authentication there, it will return to '/csgoapi/v1.0/loginStatus' by default, returning { "login": true/false }.
 If you use the API in a web interface, you can set 'redirectPage' in the config to your startPage (e.g. http://your-webserver/index.html) This way, you can call up the login page and then be returned to your web application after you got the session cookie in your browser.
 
-If you want to have a manual logout in your client, call '/logout', which will redirect to '/loginStatus' to confirm the success.
+If you want to have a manual logout in your client, call '/csgoapi/v1.0/logout', which will redirect to '/csgoapi/v1.0/loginStatus' to confirm the success.
 
 ### Server Control
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/control', 'action=<anAction>')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/control/<anAction>')
 ```
 The /control message will return a JSON-String.
 'action' can have the following values:
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
-- start -> optional additional argument "starmap" (action=start&startmap=mapname): { "success": true/false }
-If run without startmap, server will be started with famous de_dust2.
+- start -> optional additional argument "startmap" (&startmap=mapname): { "success": true/false }
+If run without startmap, server will be started with de_dust2.
+- stop -> stop the server with RCON 'quit': { "success": true/false }
+- kill -> use 'kill' command to shutdown the server, if RCON connection is not working: { "success": true/false }
 - changemap -> additional argument "map" (action=changemap&map=mapname): 
-If you do not use websockets, the answer will be { "success": true/false }. true if start of new map is logged, false in case of error or after a timeout of 30 seconds.
-If you use websockets, answer will be { "success": true/false } if the rcon command to server was sauccessful or not. Completion of mapchange is sent via the websocket in the format:
-```javascript
-{ "type": "mapchange", "payload": { "success": true/false } }
-```
 - reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
-- stop -> stop the server: { "success": true/false }
+
+If you do not use websockets, the answer will be sent after completion of the operation.
+If you use websockets, answer will be sent right away. Progress and/or completion messages are sent via the websocket. See below for format. Exception is server start, since RCON-authentication is a vital step for the api, 'start' will always return "success" only after authentication finished.
 
 ### RCON
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/rcon', 'message=command')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/rcon', 'message=command')
 ```
 'command' is the command as you would enter it in the servers console.
 Answer is the response as string.
 
 ### Server Info
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/serverInfo')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/serverInfo')
 ```
 Gets information on the server as JSON-String. See serverInfo.js for available data.
 
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/runstatus')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/rconauthstatus')
+```
+Query if the server is running or also authenticated for rcon requests. Answer is deleayed if a status change is in progress.
+
 ## Information Updates via WebSocket
-A websocket is available a configurable port to receive further information.
-Currently avialable are update-progress, ServerInfo as any value changes and completion of mapchange (on start of new map).
+A websocket is available on a configurable port to receive further information.
+Currently avialable are ServerInfo as any value changes, start/stop/fail of commands, update-progress and completion of mapchange (on start of new map).
 
 ServerInfo message looks as follows:
 ```javascript
-{ "type": "serverInfo", "payload": ${JSON.stringify(serverInfo.getAll())}
+{ "type": "serverInfo", "payload": {ServerInfoObject}
 ```
 For now, Serverinfo is always sent completely
+
+Start/stop of a command:
+```javascript
+{ "type": "commandstatus", "payload": { "operation": <string>, "state": <"start"/"stop"/"fail"> } }
+```
+Operation can be one of the following: start, stop, update, mapchange
 
 UpdateProgress looks as follows:
 ```javascript
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
 
-mapchange message:
+mapchange message (deprecated, do not use anymore):
 ```javascript
 { "type": "mapchange", "payload": { "success": true/false }
 ```
@@ -112,7 +132,8 @@ false is sent after a 30 sec. timeout when no "Started map" log has been receive
 ## Example
 An example of a webinterface is available in the folder "example"
 It assumes, that you run it on the same domain as the API. If you want to change that, you can do so in js/gameserver.js (see comment in the file)
-To correctly load the maplist for server start, edit the respective line in gameserver.php.
+To correctly load the maplist for server start, edit the respective line at the beginning of gameserver.js.
+The Webinterface works with and without websockets.
 
 ## Support
 If you have any questions, contact me.
