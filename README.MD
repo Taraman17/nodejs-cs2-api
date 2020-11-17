@@ -74,8 +74,9 @@ The /control message will return a JSON-String.
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
 - start -> optional additional argument "startmap" (&startmap=mapname): { "success": true/false }
-- stop -> stop the server: { "success": true/false }
 If run without startmap, server will be started with de_dust2.
+- stop -> stop the server with RCON 'quit': { "success": true/false }
+- kill -> use 'kill' command to shutdown the server, if RCON connection is not working: { "success": true/false }
 - changemap -> additional argument "map" (action=changemap&map=mapname): 
 - reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
 
