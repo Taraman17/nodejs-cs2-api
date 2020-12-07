@@ -137,12 +137,12 @@ function reloadMaplist() {
             // Only return, if list has at least one item.
             if (maplist.length > 0) {
                 serverInfo.mapsAvail = maplist;
-                resolve(`{ "sucess": true }`);
+                resolve({ "success": true });
             } else {
-                resolve(`{ "sucess": false }`);
+                resolve({ "success": false });
             }
         }).catch((err) => {
-            resolve(`{ "sucess": false }`);
+            resolve({ "success": false });
         });
     });
 }
@@ -185,7 +185,7 @@ controlEmitter.on('exec', (operation, action) => {
             serverInfo.map = cutMapName(mapstring);
         });
         reloadMaplist().then((answer) => {
-            if (answer == '{ "sucess": false }') {
+            if (answer == '{ "success": false }') {
                 logger.warn("Maps could not be loaded");
             }
         });
@@ -567,9 +567,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Update Maps available on server
     } else if (args.action == "reloadmaplist") {
         reloadMaplist().then( (answer) => {
-            res.writeHeader(200, { 'Content-Type': 'application/json' });
-            res.write(answer);
-            res.end();
+            res.json(answer);
         });
     }
 });
