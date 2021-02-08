@@ -16,7 +16,7 @@ The old Endpoints will be available for some time to allow for a transition time
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver express express-session cors passport passport-steam node-pty ws winston winston-daily-rotate-file
+npm install --save rcon-srcds srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
 ```
 
 ## Configuration
