@@ -23,7 +23,7 @@
  * @requires ./config.js
  */
 
-const rcon = require('rcon-srcds');
+const rcon = require('rcon-srcds').default;
 const logReceiver = require('srcds-log-receiver');
 const express = require('express');
 const session = require('express-session');
@@ -210,7 +210,7 @@ function authenticate() {
                     controlEmitter.emit('exec', 'auth', 'fail');
                     reject({ "authenticated": false });
                 }, 10000);
-                nodejsapiState.serverRcon = new rcon();
+                nodejsapiState.serverRcon = new rcon({});
                 logger.debug('sending authentication request');
                 nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {
                     logger.debug('received authentication');
