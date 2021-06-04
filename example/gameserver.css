@@ -45,8 +45,9 @@ p {
 }
 #runControl {
     display: flex;
+    flex-grow: 2;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: flex-start;
     margin-top: 10px;
     margin-bottom: 20px;
 }
@@ -54,11 +55,17 @@ p {
     margin: 5px 20px;
     top: 10px;
 }
-#buttonRestart, #buttonStop {
+#buttonRestart, #buttonStop, #addControl {
     display: none;
 }
 #startMap {
-
+}
+#addControl {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    margin-top: 10px;
+    margin-bottom: 20px;
 }
 
 #serverInfo {

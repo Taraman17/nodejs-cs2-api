@@ -7,10 +7,7 @@
     <link href="gameserver.css" rel="stylesheet" type="text/css">
 </head>
 
-<body alink="#000099"
-      link="#000099"
-      vlink="#990099">
-
+<body>
     <div class="container-popup">
         <div class="popup">
             <div id="popupCaption" class="ueberschrift">Server wird gestartet</div>
@@ -49,12 +46,20 @@
                    class="text"
                    value="Login"
                    onclick="doLogin(this);"/>
+
+            <div id="startMap" class="label clearfix">
+                Starten mit:&nbsp;&nbsp;
+                <select id="mapAuswahl">
+                    <!-- Will be filled by Javascript -->
+                </select>
+            </div>
         </div>
-        <div id="startMap" class="label clearfix">
-            Starten mit:&nbsp;&nbsp;
-            <select id="mapAuswahl">
-                <!-- Will be filled by Javascript -->
-            </select>
+        <div id="addControl">
+            <input id="buttonReload"
+                   type="button"
+                   class="text"
+                   value="Reload Maps"
+                   onclick="sendGet(`${address}/control/reloadmaplist`);"/>
         </div>
     </div>
     <div id="serverInfo" class="clearfix section">

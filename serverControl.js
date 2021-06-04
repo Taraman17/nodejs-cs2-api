@@ -205,7 +205,16 @@ function authenticate() {
                 logger.verbose("RCON authenticating...");
                 // since this API is designed to run on the same machine as the server keeping 
                 // default here which is 'localhost'
+<<<<<<< Updated upstream
                 nodejsapiState.serverRcon = new rcon();
+=======
+                let authTimeout = setTimeout( () => {
+                    logger.error('Authentication timed out');
+                    controlEmitter.emit('exec', 'auth', 'fail');
+                    reject({ "authenticated": false });
+                }, 20000);
+                nodejsapiState.serverRcon = new rcon({});
+>>>>>>> Stashed changes
                 logger.debug('sending authentication request');
                 nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {
                     logger.debug('received authentication');
