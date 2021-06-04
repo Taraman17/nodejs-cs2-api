@@ -209,7 +209,7 @@ function authenticate() {
                     logger.error('Authentication timed out');
                     controlEmitter.emit('exec', 'auth', 'fail');
                     reject({ "authenticated": false });
-                }, 10000);
+                }, 30000);
                 nodejsapiState.serverRcon = new rcon({});
                 logger.debug('sending authentication request');
                 nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {

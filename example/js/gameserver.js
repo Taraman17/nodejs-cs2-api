@@ -89,6 +89,7 @@ function setupNotLoggedIn() {
     $('#buttonStart').hide(0);
     $('#buttonUpdate').hide(0);
     $('#buttonLogin').show(0);
+    $('#addControl').hide(0);
     $('#serverInfo').hide(0);
     $('#mapControl').hide(0);
 }
@@ -106,6 +107,7 @@ function setupServerRunning() {
     $('#buttonStart').hide(0);
     $('#buttonUpdate').hide(0);
     $('#buttonLogin').hide(0);
+    $('#addControl').show(0);
     $('#serverInfo').css('display', 'flex');
     $('#mapControl').show(0);
 }
@@ -117,6 +119,7 @@ function setupServerStopped() {
     $('#buttonUpdate').show(0);
     $('#buttonLogin').hide(0);
     $('#serverInfo').hide(0);
+    $('#addControl').hide(0);
     $('#mapControl').hide(0);
     $('#mapSelector').hide('fast');
 }

@@ -34,7 +34,7 @@ $( document ).ready(() => {
                         $(`#${player.team.toLowerCase()}Players`).show(0);
                     }
                 }
-                if ($('#mapList li').length < 2) {
+                if ($('#mapList li').length != serverInfo.mapsAvail.length) {
                     if (serverInfo.mapsAvail) {
                         let maplist = serverInfo.mapsAvail;
                         $("#mapList").empty();

@@ -86,9 +86,9 @@ module.exports = class config {
         return this._userOptions.rconPass;
     }
 
-     get admins() {
-         return this._userOptions.admins;
-     }
+    get admins() {
+        return this._userOptions.admins;
+    }
 
     get redirectPage() {
         return this._userOptions.redirectPage;
