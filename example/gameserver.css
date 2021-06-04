@@ -242,3 +242,8 @@ select {
     padding: 5px;
     border: 1px solid;
 }
+
+/* Not authenticated page */
+.error {
+    display: none;
+}

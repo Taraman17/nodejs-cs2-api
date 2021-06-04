@@ -23,7 +23,7 @@
  * @requires ./config.js
  */
 
-const rcon = require('rcon-srcds');
+const rcon = require('rcon-srcds').default;
 const logReceiver = require('srcds-log-receiver');
 const express = require('express');
 const session = require('express-session');
@@ -137,12 +137,12 @@ function reloadMaplist() {
             // Only return, if list has at least one item.
             if (maplist.length > 0) {
                 serverInfo.mapsAvail = maplist;
-                resolve(`{ "sucess": true }`);
+                resolve({ "success": true });
             } else {
-                resolve(`{ "sucess": false }`);
+                resolve({ "success": false });
             }
         }).catch((err) => {
-            resolve(`{ "sucess": false }`);
+            resolve({ "success": false });
         });
     });
 }
@@ -185,7 +185,7 @@ controlEmitter.on('exec', (operation, action) => {
             serverInfo.map = cutMapName(mapstring);
         });
         reloadMaplist().then((answer) => {
-            if (answer == '{ "sucess": false }') {
+            if (answer == '{ "success": false }') {
                 logger.warn("Maps could not be loaded");
             }
         });
@@ -215,15 +215,18 @@ function authenticate() {
                 nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {
                     logger.debug('received authentication');
                     controlEmitter.emit('exec', 'auth', 'end');
+                    clearTimeout(authTimeout);
                     resolve({ "authenticated": true });
                 }).catch((err) => {
                     if (err == 'Already authenticated') {
                         logger.verbose('Already authenticated.');
                         controlEmitter.emit('exec', 'auth', 'end');
+                        clearTimeout(authTimeout);
                         resolve({ "authenticated": true });
                     } else {
                         logger.error("authentication error: " + err);
                         controlEmitter.emit('exec', 'auth', 'fail');
+                        clearTimeout(authTimeout);
                         reject({ "authenticated": false });
                     }
                 });
@@ -426,7 +429,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Stop Server
     } else if (args.action == "stop" && nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
         nodejsapiState.operationPending = 'stop';
-        logger.verbose("senaction quit.");
+        logger.verbose("sending quit.");
         executeRcon('quit').then((answer) => {
             nodejsapiState.serverRunning = false;
             nodejsapiState.authenticated = false;
@@ -564,9 +567,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
     // Update Maps available on server
     } else if (args.action == "reloadmaplist") {
         reloadMaplist().then( (answer) => {
-            res.writeHeader(200, { 'Content-Type': 'application/json' });
-            res.write(answer);
-            res.end();
+            res.json(answer);
         });
     }
 });
@@ -698,7 +699,7 @@ app.get('/csgoapi/v1.0/authenticate', ensureAuthenticated, (req, res) => {
     authenticate().then((data) => {
         res.json(data);
     }).catch((data) => {
-        res.send(data);
+        res.json(data);
     });
 });
 
@@ -720,7 +721,7 @@ app.get('/csgoapi/v1.0/info/serverInfo', ensureAuthenticated, (req, res) => {
     logger.verbose('Processing Serverinfo request.');
     if (nodejsapiState.authenticated) {
         res.json(serverInfo.getAll());
-    } else if (!nodejsapiState.running) {
+    } else if (!nodejsapiState.serverRunning) {
         res.status(503).json({ "error": "CS:GO Server not running." });
     } else if (!nodejsapiState.authenticated) {
         res.status(503).json({ "error": "RCON not authenticated." });
@@ -744,7 +745,7 @@ app.get('/csgoapi/v1.0/info/runstatus', ensureAuthenticated, (req, res) => {
     if (nodejsapiState.operationPending == 'start' || nodejsapiState.operationPending == 'stop') {
     let sendResponse = (type, action) => {
             if (type == 'auth' && action == 'end') {
-                res.json({ "running": nodejsapiState.running });
+                res.json({ "running": nodejsapiState.serverRunning });
                 controlEmitter.removeListener('exec', sendResponse);
             }
         }
@@ -842,8 +843,10 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
             }
         });
     } else if (nodejsapiState.serverRunning) {
+        logger.warn('Start triggered with server already running');
         res.status(503).json({ "error": "Server already running." });
     } else if (nodejsapiState.operationPending != 'none') {
+        logger.warn(`Server Start triggered, while ${nodejsapiState.operationPending} pending.`);
         res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
@@ -868,7 +871,7 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
 app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
     if (nodejsapiState.serverRunning && nodejsapiState.operationPending == 'none') {
         controlEmitter.emit('exec', 'stop', 'start');
-        logger.verbose("senaction quit.");
+        logger.verbose("sending quit.");
         executeRcon('quit').then((answer) => {
             nodejsapiState.serverRunning = false;
             nodejsapiState.authenticated = false;
@@ -880,8 +883,10 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
             controlEmitter.emit('exec', 'stop', 'end');
         });
     } else if (!nodejsapiState.serverRunning) {
+        logger.warn('Stop triggered, although server not running');
         res.status(503).json({ "error": "Server not running." });
     } else if (nodejsapiState.operationPending != 'none') {
+        logger.warn(`Stop triggered, while ${nodejsapiState.operationPending} pending.`);
         res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
@@ -915,9 +920,10 @@ app.get('/csgoapi/v1.0/control/stop', ensureAuthenticated, (req, res) => {
                     res.status(501).json({ "error": "Could not kill csgo server process" });
                 } else {
                     // reset API-State
-                    nodejsapiState.running = false;
+                    nodejsapiState.serverRunning = false;
                     nodejsapiState.authenticated = false;
                     nodejsapiState.serverRcon = undefined;
+                    logger.verbose('Server process killed.')
                     res.json({ "success": true });
                 }
             });
@@ -980,7 +986,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
                 res.json(`{ "success": true }`);
                 updateProcess.once('close', (code) => {
                     if (!updateSuccess) {
-                        logger.warn('Update not successful.');
+                        logger.warn('Update exited without success.');
                         controlEmitter.emit('progress', 'Update failed!', 100);
                         controlEmitter.emit('exec', 'update', 'end');
                     }
@@ -990,6 +996,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
                     if (updateSuccess) {
                         res.json({ "success": true });
                     } else {
+                        logger.warn('Update exited without success.');
                         res.status(501).json({ "error": "Update was not successful" });
                     }
                     controlEmitter.emit('exec', 'update', 'end');
@@ -1001,8 +1008,10 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
             controlEmitter.emit('exec', 'update', 'end');
         }
     } else if (nodejsapiState.serverRunning) {
+        logger.warn('Update triggered, while server running.');
         res.status(503).json({ "error": "Server is running - stop before updating" });
     } else if (nodejsapiState.operationPending != 'none') {
+        logger.warn(`Update triggered, while ${nodejsapiState.operationPending} pending`);
         res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });
@@ -1073,6 +1082,7 @@ app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
             controlEmitter.emit('exec', 'mapchange', 'end');
         }
     } else {
+        logger.warn(`Mapchange triggered, while ${nodejsapiState.operationPending} pending.`);
         res.status(503).json({ "error": `Another Operation is Pending: ${nodejsapiState.operationPending}` });
     }
 });

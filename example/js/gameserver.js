@@ -13,11 +13,6 @@ var titles = {
 }
 var running = false;
 var authenticated = false;
-try {
-    var socket = new WebSocket(`wss://${host}:8091`);
-} catch (err) {
-    console.error('Connection to websocket failed:\n' + err);
-}
 
 // Redirect to login page.
 function doLogin() {
@@ -38,71 +33,6 @@ function sendGet(address, data, callback) {
         success: callback
     });
 }
-
-// what to do after document is loaded.
-$( document ).ready(() => {
-    socket.onopen = () => {
-        socket.send('infoRequest');
-    }
-
-    socket.onmessage = (e) => {
-        let data = JSON.parse(e.data);
-
-        if (data.type == "serverInfo") {
-            let serverInfo = data.payload;
-
-            $("#currentMap").html(`Current map: ${serverInfo.map}`);
-            $('#scoreT').text(serverInfo.score.T);
-            $('#scoreCT').text(serverInfo.score.C);
-            $('#rounds').html(
-                `Rounds: ${serverInfo.maxRounds} / Left: ${serverInfo.maxRounds - (serverInfo.score.T + serverInfo.score.C)}`
-            );
-
-            $('.playerDiv ul').empty();
-            $('.playerDiv').hide(0);
-            if (serverInfo.players.length > 0) {
-                for (let i=0; i < serverInfo.players.length; i++) {
-                    let player = serverInfo.players[i];
-                    $(`#${player.team.toLowerCase()}List`).append(`<li class="dropbtn">${player.name}</li>`);
-                    $(`#${player.team.toLowerCase()}Players`).show(0);
-                }
-            }
-            if ($('#mapList li').length < 2) {
-                if (serverInfo.mapsAvail) {
-                    let maplist = serverInfo.mapsAvail;
-                    $("#mapList").empty();
-                    for (map of maplist) {
-                        var li = document.createElement("li");
-                        li.appendChild(document.createTextNode(map));
-                        $("#mapList").append(li);
-                    }
-                }
-            }
-        } else if (data.type == "commandstatus") {
-            if (data.payload.state == 'start') {
-                $('#popupCaption').text(`${titles[data.payload.operation]}`);
-                $('#popupText').text('Moment bitte!');
-                $('.container-popup').css('display', 'flex');
-            } else if (data.payload.state == 'end' && data.payload.operation != 'start') {
-                window.setTimeout( () => {
-                    $('.container-popup').css('display', 'none');
-                }, 1500);
-                setupPage();
-            }
-        } else if (data.type == "progress") {
-            $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
-        } else if (data.type == "mapchange") {
-            if (data.payload.success$ && ('#popupCaption').text() == 'Changing Map') {
-                socket.send('infoRequest');
-                $('.container-popup').css('display', 'none');
-            } else if (!data.payload.success) {
-                $('#popupText').html(`Mapchange failed!`);
-            }
-        }
-    }
-    loadMaplist();
-    setupPage();
-});
 
 // Load the maplist for serverstart from maplist.txt
 function loadMaplist() {
@@ -133,11 +63,7 @@ function setupPage() {
                     let serverRunning = getPromise('info/runstatus');
                     serverRunning.then((data) => {
                         if (data.running) {
-                            if (confirm('Server Running, but RCON not authenticated.\n\nTry to authenticate again?')) {
-                                sendGet(`${address}/info/authenticate`).done((data) => {
-                                    
-                                });
-                            }
+                            window.location.href = './notauth.htm';
                         } else {
                             setupServerStopped();
                         }
@@ -307,5 +233,25 @@ function restartRound() {
         window.setTimeout( () => {
             $('.container-popup').css('display', 'none');
         }, 1000);
+    });
+}
+
+function authenticate (caller) {
+    sendGet(`${address}/authenticate`).done((data) => {
+        if (data.authenticated) {
+            window.location.href = './gameserver.htm';
+        } else {
+            caller.disabled = true;
+            $('#autherror').show('fast');
+        }
+    });
+}
+function kill(caller) {
+    
+    sendGet(`${address}/control/kill`).done((data) => {
+        window.location.href = './gameserver.htm';
+    }).fail ((error) => {
+        caller.disabled = true;
+        $('#killerror').show('fast');
     });
 }
