@@ -5,6 +5,8 @@ module.exports = class serverInfo {
         // data section
         this._map = '';
         this._mapsAvail = [];
+        this._mapFilterType = 'exclude'; // 'include / exclude',
+        this._mapFilters = []; // ['string', /regex/]
         this._maxRounds = 0;
         this._score = {
             'T': 0,
@@ -35,6 +37,63 @@ module.exports = class serverInfo {
     set mapsAvail(newMapsAvail) {
         this._mapsAvail = newMapsAvail;
         this.serverInfoChanged.emit('change');
+    }
+    mapList() {
+        if (this._mapFilters.length > 0 ) {
+            return this._mapsAvail.filter( (map) => {
+                let found = false;
+                this._mapFilters.forEach( (filter) => {
+                    let currentFilter = filter
+                    if (filter.constructor.name != "RegExp") {
+                      currentFilter = new RegExp(filter)
+                    }
+                    if (currentFilter.test(map)) {
+                      found = true;
+                    }
+                });
+                console.log(`for map ${map}, found is ${found.toString}`);
+                if (this._mapFilterType === 'include') {
+                    return found;
+                } else {
+                    return !found;
+                }
+            });
+        } else {
+            return this._mapsAvail;
+        }
+    }
+
+    get mapFilterType() {
+        return this._mapFilterType;
+    }
+    set mapFilterType(type) {
+        // only set if a valid string is given.
+        if ((type === 'include' || type === 'exclude')) {
+            this._mapFilterType = type;
+        }
+    }
+    get mapFilters() {
+        return this._mapFilters;
+    }
+    mapFilterAdd(filter) {
+        this._mapFilters.push(filter)
+    }
+    mapFilterRemove(itemToRemove) {
+        if (this._mapFilters.length == 0) {
+            return;
+        }
+        if (typeof filter === number) {
+            this._mapFilters.splice(filter, 1);
+        } else {
+            let newFilters = this._mapFilters.filter( (currentItem) => {
+                return (currentItem != itemToRemove);
+            });
+            this._mapFilters = newFilters;
+        }
+    }
+    mapFilterReset() {
+        this._mapFilterType = 'exclude';
+        this._mapFilters = [];
     }
 
     get maxRounds() {
@@ -89,7 +148,7 @@ module.exports = class serverInfo {
     getAll() {
         return {
             'map': this._map,
-            'mapsAvail': this._mapsAvail,
+            'mapsAvail': this.mapList(),
             'maxRounds': this._maxRounds,
             'score': this._score,
             'players': this._players
