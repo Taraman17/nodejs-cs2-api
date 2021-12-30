@@ -6,73 +6,87 @@ module.exports = class config {
         this._userOptions = {
             // Network interface over which the server is communicating. We set this and not the 
             // IP-address, in case the server is using DHCP in a LAN and not a static address.
-            'iface': 'eth0',
+            'iface': 'enp2s0',
             // Hostname of the machine, this script runs on (e.g.: yourdomain.org).
             // Leave empty if you use the IP of iface.
-            'host': '',
+            'host': 'klosser.duckdns.org',
             // steam serverToken. To get one see https://steamcommunity.com/dev/managegameservers
-            'serverToken': '<token>',
+            'serverToken': '45730D5CEC3FFB9182D363412BDA2D2E',
             // Well, the rcon password...
-            'rconPass': 'YourRconPass',
+            'rconPass': 'Localizer',
             // SteamID64 of Users who are allowed to control the server. For info on SteamID64 see:
             // https://steamcommunity.com/discussions/forum/1/364039785160857002/
-            'admins': [],
+            'admins': [
+                '76561197972876102', //Taraman
+                '76561198142850845', //Jäger
+                '76561197969971321', //Sandman
+                '76561197972399574', //Dirki
+                '76561197971480031', //Dänny
+                '76561197970427375', //ThF
+                '76561197971375233', //Tomcat
+                '76561197974009097', //TreffNix
+                '76561197975056156', //AntiPlayer
+                '76561197992455058', //Flugmacker
+                '76561197970706023', //Monty Burns
+                '76561197972979817', //John Corey
+                '76561197962253628' //Pillemann
+            ],
             // The Page the client is redirected to after login - see README for more info.
-            'redirectPage': '/loginStatus',
+            'redirectPage': 'https://klosser.duckdns.org/control/gameserver.htm',
             // Time in minutes, after which a new login is needed.
             'loginValidity': 300,
             // Port, the webserver for API calls listens on.
             'apiPort': 8090,
             // Set to true if you use Websockets for status updates.
-            'webSockets': false,
+            'webSockets': true,
             // Port, the websocket is listening on.
             'socketPort': 8091,
             // https settings
-            'useHttps': false,
+            'useHttps': true,
             // Optional: If you use https, add the path to the certificate files here.
-            'httpsCertificate': '',
-            'httpsPrivateKey': '',
-            // Optional: In case your CA is not trusted by default (e.g. letsencrypt), you can add 
+            'httpsCertificate': '/etc/letsencrypt/live/klosser.duckdns.org/cert.pem',
+            'httpsPrivateKey': '/etc/letsencrypt/live/klosser.duckdns.org/privkey.pem',
+            // Optional.In case your CA is not trusted by default (e.g. letsencrypt), you can add 
             // the CA-Cert here.
-            'httpsCa': '',
+            'httpsCa': '/etc/letsencrypt/live/klosser.duckdns.org/chain.pem',
             // CORS origin setting. '*' is not allowed since login credentials are sent with requests.
             // For possible values see:
             // https://expressjs.com/en/resources/middleware/cors.html#configuration-options
-            'corsOrigin': 'localhost',
+            'corsOrigin': 'https://klosser.duckdns.org',
             // Change this to any string of your liking to make it harder for attackers to profile your cookies.
-            'sessionSecret': 'nodejs-csgo-api',
+            'sessionSecret': 'klossers-csserver',
             // The folder, where your srcds_run is located.
-            'csgoDir': '/home/csgo/csgo_ds',
+            'csgoDir': '/home/taraman/csgo_ds',
             // Anything you want your server command line to have additional to:
             //   -game csgo -console -usercon +sv_setsteamaccount
-            'csgoOptionalArgs': '-insecure +sv_lan 1 +sv_pure 0 -ip 0.0.0.0 +mapgroup mg_all',
+            'csgoOptionalArgs': '-insecure +sv_lan 0 +sv_pure 0 -ip 0.0.0.0 +mapgroup mg_all',
             // The path to screen.
             'screen': '/usr/bin/screen',
             // The name screen will give the process (no spaces allowed).
             'screenName': 'csgoServer',
             // The screen Logfile where the console output of screen and the server will be logged.
             // New logs are appended, so you may need to delete or rotate this log periodically.
-            'screenLog': '/home/csgo/screen.log',
+            'screenLog': '/home/taraman/screen.log',
             // Path to steamcmd, can stay like this if installed via package manager.
-            'steamExe': 'steamcmd',
+            'steamExe': '/usr/games/steamcmd',
             // Steam Account to update the server with steamcmd.
-            'steamAccount': '<username> <password>',
+            'steamAccount': 'Taraman2 Q5%5Cp63',
             // Script to pass into steamcmd to update.
             // See https://steamcommunity.com/discussions/forum/1/492379159713970561/ for more info.
-            'updateScript': '/home/csgo/update_csgo.txt',
+            'updateScript': '/home/taraman/csgo_ds/update_csgo.txt',
             // Scripts to run on various events. Use absolute path.
             'logStartScript': '',
             'mapStartScript': '',
             'matchStartScript': '',
             'roundStartScript': '',
             'roundEndScript': '',
-            'matchEndScript': '',
+            'matchEndScript': '/home/taraman/serverControl/scripts/matchEndScript',
             //'mapEndScript': '', // For the moment I have no definite way to sense the end of map.
             'logEndScript': '',
             // Logfile for API
-            'logFile': './logs/csgoapi',
+            'logFile': '/home/taraman/serverControl/logs/csgoapi',
             // logLevel for API-Logfiles. In case 'debug' is set, logs will also be written to console.
-            'logLevel': 'http',
+            'logLevel': 'debug',
             // how many Days should logfiles be kept?
             'logDays': '14'
         };

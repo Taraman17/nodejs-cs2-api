@@ -33,6 +33,7 @@ const passport = require('passport');
 const SteamStrategy = require('passport-steam').Strategy;
 const webSocket = require('ws');
 const url = require('url');
+const https = require('https');
 const fs = require('fs');
 const events = require('events');
 const pty = require('node-pty');
@@ -126,21 +127,87 @@ exec('/bin/ps -a', (error, stdout, stderr) => {
  */
 function reloadMaplist() {
     return new Promise((resolve, reject) => {
+
+        function _sendApiRequest(_mapName, mapId) {
+            return new Promise ((resolve, reject) => {
+                let workshopInfo = '';
+
+                const options = {
+                    hostname: 'api.steampowered.com',
+                    path: '/ISteamRemoteStorage/GetPublishedFileDetails/v1/',
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                };
+                var steamApiRequest = https.request(options, (res) => {
+                    let resData = '';
+                    res.on('data', (dataChunk) => {
+                        resData += dataChunk;
+                    });
+                    res.on('end', () => {
+                        try {
+                            resJSON = JSON.parse(resData);
+                            let previewLink = resJSON.response.publishedfiledetails[0].preview_url;
+                            let title = resJSON.response.publishedfiledetails[0].title;
+                            let description = resJSON.response.publishedfiledetails[0].description;
+                            let tags = resJSON.response.publishedfiledetails[0].tags;
+                            resolve({ "name": _mapName, "title": title, "description": description, "previewLink": previewLink, "tags": tags });
+                        }
+                        catch (e) {
+                            reject({ "name": _mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                        }
+                    });
+                });
+
+                steamApiRequest.on('error', error => {
+                    logger.warn(`steamApiRequest not successful: ${error}`);
+                    reject({ "name": _mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                });
+
+                steamApiRequest.write(`itemcount=1&publishedfileids%5B0%5D=${mapId}`);
+                steamApiRequest.end();
+            });
+        }
+
         executeRcon('maps *').then((answer) => {
+            const officialMaps = require('./OfficialMaps.json');
             let re = /\(fs\) (\S+).bsp/g;
             let maplist = [];
+            let mapdetails = [];
             let mapsArray = getMatches(answer, re, 1);
+            let promises = [];
             mapsArray.forEach((mapString) => {
-                maplist.push(cutMapName(mapString));
+                let mapName = cutMapName(mapString);
+                maplist.push(mapName);
+                if (mapString.includes('workshop/')) {
+                    let mapIdRegex = /workshop\/(\d+)\//;
+                    let workshopId = mapString.match(mapIdRegex)[1];
+                    promises.push(_sendApiRequest(mapName, workshopId));
+                } else {
+                    let workshopId = officialMaps[mapName];
+                    if (workshopId != undefined) {
+                        promises.push(_sendApiRequest(mapName, workshopId));
+                    } else {
+                        mapdetails.push({ "name": mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                    }
+                }
             });
-            maplist.sort();
-            // Only return, if list has at least one item.
-            if (maplist.length > 0) {
-                serverInfo.mapsAvail = maplist;
-                resolve({ "success": true });
-            } else {
-                resolve({ "success": false });
-            }
+            Promise.allSettled(promises).then( (results) => {
+                results.forEach((result) => {
+                    mapdetails.push(result.value)
+                })
+
+                mapdetails.sort((a, b) => a.name.localeCompare(b.name));
+                maplist.sort();
+                // Only return, if list has at least one item.
+                if (maplist.length > 0) {
+                    logger.debug("Saving Maplist to ServerInfo");
+                    serverInfo.mapsAvail = maplist;
+                    serverInfo.mapsDetails = mapdetails;
+                    resolve({ "success": true });
+                } else {
+                    resolve({ "success": false });
+                }
+            });
         }).catch((err) => {
             resolve({ "success": false });
         });
@@ -209,7 +276,7 @@ function authenticate() {
                     logger.error('Authentication timed out');
                     controlEmitter.emit('exec', 'auth', 'fail');
                     reject({ "authenticated": false });
-                }, 30000);
+                }, 60000);
                 nodejsapiState.serverRcon = new rcon({});
                 logger.debug('sending authentication request');
                 nodejsapiState.serverRcon.authenticate(cfg.rconPass).then(() => {
@@ -400,7 +467,7 @@ app.get("/control", ensureAuthenticated, (req, res) => {
             startMap = args.startmap;
         }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
-        var serverProcess = exec(commandLine, function(error, stdout, stderr) {
+        var serverProcess = exec(commandLine, (error, stdout, stderr) => {
             if (error) {
                 // node couldn't execute the command.
                 res.writeHeader(200, {"Content-Type": "application/json"});
@@ -783,6 +850,32 @@ app.get('/csgoapi/v1.0/info/rconauthstatus', ensureAuthenticated, (req, res) => 
 });
 
 /**
+ * @apiDescription Get filter info.
+ *
+ */
+app.get('/csgoapi/v1.0/filter', ensureAuthenticated, (req, res) => {
+    res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
+});
+
+/**
+ * @apiDescription Reset filter.
+ *
+ */
+app.get('/csgoapi/v1.0/filter/reset', ensureAuthenticated, (req, res) => {
+    serverInfo.mapFilterReset();
+    res.json({ "success": true });
+});
+
+/**
+ * @apiDescription Add filter.
+ *
+ */
+app.post('/csgoapi/v1.0/filter/add', ensureAuthenticated, (req, res) => {
+    serverInfo.mapFilterAdd(req.query.filter);
+    res.json({ "success": true });
+});
+
+/**
  * @apiDescription Start CS:GO Server
  *
  * @api {get} /csgoapi/v1.0/control/start
@@ -817,7 +910,7 @@ app.get('/csgoapi/v1.0/control/start', ensureAuthenticated, (req, res) => {
             startMap = args.startmap;
         }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
-        let serverProcess = exec(commandLine, function(error, stdout, stderr) {
+        let serverProcess = exec(commandLine, (error, stdout, stderr) => {
             if (error) {
                 // node couldn't execute the command.
                 res.status(501).json({ "error": error.code });
@@ -1020,9 +1113,9 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
 /**
  * @apiDescription Change Map
  *
- * @api {get} /csgoapi/v1.0/control/update
+ * @api {get} /csgoapi/v1.0/control/changemap
  * @apiVersion 1.0
- * @apiName Update
+ * @apiName changemap
  * @apiGroup Control
  
  * @apiSuccess {boolean} success
@@ -1032,7 +1125,7 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
  * @apiError {string} error
  * @apiErrorExample {json}
  *     HTTP/1.1 501 Internal Server Error
- *     { "error": "Update could not be started." }
+ *     { "error": "RCON error: Unable to write to socket" }
  */
 app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
     var args = req.query;
@@ -1075,11 +1168,11 @@ app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
                 }
             }).catch((err) => {
                 res.status(501).json({ "error": `RCON error: ${err.toString()}`});
-                controlEmitter.emit('exec', 'mapchange', 'end');
+                controlEmitter.emit('exec', 'mapchange', 'fail');
             });
         } else {
             res.status(501).json({ "error": `Map ${args.map} not available` });
-            controlEmitter.emit('exec', 'mapchange', 'end');
+            controlEmitter.emit('exec', 'mapchange', 'fail');
         }
     } else {
         logger.warn(`Mapchange triggered, while ${nodejsapiState.operationPending} pending.`);
@@ -1087,8 +1180,19 @@ app.get('/csgoapi/v1.0/control/changemap', ensureAuthenticated, (req, res) => {
     }
 });
 
-// TODO: Check JSON returned by function
-// Update Maps available on server
+/**
+ * @apiDescription Reload availbale maps from server.
+ *
+ * @api {get} /csgoapi/v1.0/control/reloadmaplist
+ * @apiVersion 1.0
+ * @apiName reloadmaplist
+ * @apiGroup Control
+
+ * @apiSuccess {boolean} success
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "success": true }
+ */
 app.get('/csgoapi/v1.0/control/reloadmaplist', ensureAuthenticated, (req, res) => {
     reloadMaplist().then( (answer) => {
         res.json(answer);
@@ -1171,7 +1275,7 @@ if (cfg.webSockets) {
         /**
          * Notifies clients of start or end of a control operation
          * @param {string} operation (start, stop, update, mapchange)
-         * @param {string} action (start, end)
+         * @param {string} action (start, end, fail)
          */
         var sendControlNotification = (operation, action) => {
             ws.send(`{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${action}" } }`);
@@ -1343,7 +1447,7 @@ receiver.on('data', (data) => {
         }
     }
 });
-receiver.on('invalid', function(invalidMessage) {
+receiver.on('invalid', (invalidMessage) => {
     logger.verbose('Got some completely unparseable gargbase: ' + invalidMessage);
 });
 
