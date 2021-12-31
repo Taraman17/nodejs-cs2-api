@@ -34,15 +34,16 @@ $( document ).ready(() => {
                         $(`#${player.team.toLowerCase()}Players`).show(0);
                     }
                 }
-                if ($('#mapList li').length != serverInfo.mapsAvail.length) {
-                    if (serverInfo.mapsAvail) {
-                        let maplist = serverInfo.mapsAvail;
+                if ($('#mapList li').length != serverInfo.mapsDetails.length) {
+                    if (serverInfo.mapsDetails) {
+                        let maplist = serverInfo.mapsDetails;
                         $("#mapList").empty();
-                        for (map of maplist) {
+                        maplist.forEach( (map) => {
                             var li = document.createElement("li");
-                            li.appendChild(document.createTextNode(map));
+                            li.appendChild(document.createTextNode(map.name));
+                            li.style.backgroundImage = `url("${map.previewLink}")`;
                             $("#mapList").append(li);
-                        }
+                        });
                     }
                 }
             } else if (data.type == "commandstatus") {
@@ -55,6 +56,12 @@ $( document ).ready(() => {
                     setTimeout( () => {
                         $('.container-popup').css('display', 'none');
                         setupPage();
+                    }, 1500);
+                } else if (data.payload.state == 'fail') {
+                    $('#popupText').html(`${data.payload.operation} failed!`);
+                    setTimeout( () => {
+                        $('.container-popup').css('display', 'none');
+                        window.location.href = './notauth.htm';
                     }, 1500);
                 }
             } else if (data.type == "progress") {

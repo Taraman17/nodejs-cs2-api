@@ -145,6 +145,7 @@ function clickButton(aButton) {
             alert(`${operation} running.\nTry again in a moment.`);
         } else {
             alert(`command ${action} failed!\nError: ${errorText}`);
+            window.location.href = './notauth.htm';
         }
         if (socket.readyState != 1) {
             $('.container-popup').css('display', 'none');
@@ -182,13 +183,14 @@ function getMaps() {
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
         $("#currentMap").html(`Current map: ${data.map}`);
-        maplist = data.mapsAvail;
+        maplist = data.mapsDetails;
         $("#mapList").empty();
-        for (map of maplist) {
+        maplist.forEach( (map) => {
             var li = document.createElement("li");
-            li.appendChild(document.createTextNode(map));
+            li.appendChild(document.createTextNode(map.name));
+            li.style.backgroundImage = `url("${map.previewLink}")`;
             $("#mapList").append(li);
-        }
+        });
     }).catch((error) => {
         // do nothing for now
     });
@@ -220,7 +222,9 @@ function changeMap(event) {
             $('#popupText').html(`Mapchange failed!`);
             window.setTimeout( () => {
                 $('.container-popup').css('display', 'none');
+                window.location.href = './notauth.htm';
             }, 2000);
+            
         }
     });
 }
@@ -254,4 +258,20 @@ function kill(caller) {
         caller.disabled = true;
         $('#killerror').show('fast');
     });
+}
+
+
+// Bot Training functions
+function setBotRules() {
+    sendGet(`${address}/rcon`, `message=mp_autoteambalance 0`);
+    sendGet(`${address}/rcon`, `message=mp_limitteams 0`);
+    sendGet(`${address}/rcon`, `message=bot_difficulty 3`);
+}
+function addBots(team, quantity) {
+    for(let i=0; i < quantity; i++) {
+        setTimeout(sendGet(`${address}/rcon`, `message=bot_add_${team}`), 100);
+    }
+}
+function kickBots() {
+    sendGet(`${address}/rcon`, `message=bot_kick all`);
 }

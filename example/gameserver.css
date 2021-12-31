@@ -31,6 +31,11 @@ p {
     align-items: center;
     justify-content: space-around;
 }
+#klosser-augen {
+    width: 40%;
+    min-width: 250px;
+    max-width: 400px;
+}
 #header-text {
     font-size: 2.5em;
     text-align: center;
@@ -59,6 +64,7 @@ p {
     display: none;
 }
 #startMap {
+    
 }
 #addControl {
     display: flex;
@@ -128,6 +134,11 @@ p {
 #mapSelector {
     display: none;
 }
+#bottraining {
+    display: none;
+    float: left;
+    width: 100%;
+}
 
 .text {
     text-align: center;
@@ -182,7 +193,10 @@ select {
     min-width: 230px;
     width: 30%;
     max-width: 320px;
+    line-height: 240px;
     float: left;
+    background-repeat: no-repeat;
+    background-size: contain;
 }
 #mapSelector li.active {
     background-color: #222222;
