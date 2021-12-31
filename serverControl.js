@@ -852,27 +852,139 @@ app.get('/csgoapi/v1.0/info/rconauthstatus', ensureAuthenticated, (req, res) => 
 /**
  * @apiDescription Get filter info.
  *
+ * @api {get} /csgoapi/v1.0/filter
+ * @apiVersion 1.0
+ * @apiName Filter Info
+ * @apiGroup filter
+ *
+ * @apiSuccess {json} Filters
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "type": {string}, "filters": {array of strings} }
  */
 app.get('/csgoapi/v1.0/filter', ensureAuthenticated, (req, res) => {
     res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
 });
 
 /**
- * @apiDescription Reset filter.
+ * @apiDescription Reset filter to empty.
  *
+ * @api {get} /csgoapi/v1.0/filter/reset
+ * @apiVersion 1.0
+ * @apiName Reset Filters
+ * @apiGroup filter
+ *
+ * @apiSuccess {json} filters
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "type": {string}, "filters": {array of strings} }
  */
 app.get('/csgoapi/v1.0/filter/reset', ensureAuthenticated, (req, res) => {
     serverInfo.mapFilterReset();
-    res.json({ "success": true });
+    res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
 });
 
 /**
- * @apiDescription Add filter.
+ * @apiDescription Add a Filter
  *
+ * @api {post} /csgoapi/v1.0/filter/add
+ * @apiVersion 1.0
+ * @apiName Add filter
+ * @apiGroup filter
+ *
+ * @apiParam {string} filter Filter text
+ * @apiParamExample {string} filter
+ *     'dz_'
+ *
+ * @apiSuccess {json} Filters
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "type": {string}, "filters": {array of strings} }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 400 Bad Request
+ *     { "error": "Submitted filter text not safe." }
  */
 app.post('/csgoapi/v1.0/filter/add', ensureAuthenticated, (req, res) => {
-    serverInfo.mapFilterAdd(req.query.filter);
-    res.json({ "success": true });
+    if(!req.query.filter) {
+        return res.status(400).json({ "error": "Required parameter 'filter' is missing" });
+    }
+    
+    const safe = /^[a-zA-Z0-9-_]*$/;
+    if (!safe.test(req.query.filter)) {
+        return res.status(400).json({ "error": "Submitted filter text not safe." });
+    } else {
+        serverInfo.mapFilters.push(req.query.filter);
+    }
+    res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
+});
+
+/**
+ * @apiDescription Remove a Filter
+ *
+ * @api {post} /csgoapi/v1.0/filter/remove
+ * @apiVersion 1.0
+ * @apiName Remove filter
+ * @apiGroup filter
+ *
+ * @apiParam {string} filter Filter text
+ * @apiParamExample {string} filter
+ *     'dz_'
+ *
+ * @apiSuccess {json} Filters
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "type": {string}, "filters": {array of strings} }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 400 Bad Request
+ *     { "error": "No filter was removed." }
+ */
+app.post('/csgoapi/v1.0/filter/remove', ensureAuthenticated, (req, res) => {
+    if(!req.query.filter) {
+        return res.status(400).json({ "error": "Required parameter 'filter' is missing" });
+    }
+
+    let oldLength = serverInfo.mapFilters.length;
+    serverInfo.mapFilterRemove(req.query.filter);
+    if ( oldLength == serverInfo.mapFilters.length) {
+        return res.status(400).json({ "error": "No filter was removed." });
+    }
+    res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
+});
+
+/**
+ * @apiDescription Set filter type.
+ *
+ * @api {post} /csgoapi/v1.0/filter/type
+ * @apiVersion 1.0
+ * @apiName Set filter type
+ * @apiGroup filter
+ *
+ * @apiParam {string} type Filter type ('include' / 'exclude')
+ * @apiParamExample {string} type
+ *     "include"
+ *
+ * @apiSuccess {json} Filters
+ * @apiSuccessExample {json}
+ *     HTTP/1.1 200 OK
+ *     { "type": {string}, "filters": {array of strings} }
+ * @apiError {string} error
+ * @apiErrorExample {json}
+ *     HTTP/1.1 400 Bad Request
+ *     { "error": "Invalid type string." }
+ */
+app.post('/csgoapi/v1.0/filter/type', ensureAuthenticated, (req, res) => {
+    if(!req.query.type) {
+        return res.status(400).json({ "error": "Required parameter 'type' is missing" });
+    }
+
+    if (req.query.type === 'include' || req.query.type === 'exclude') {
+        serverInfo.mapFilterType = req.query.type;
+    } else {
+        return res.status(400).json({ "error": "Invalid type string." });
+    }
+    res.json({ "type": serverInfo.mapFilterType, "filters": serverInfo.mapFilters });
 });
 
 /**
@@ -1117,7 +1229,11 @@ app.get('/csgoapi/v1.0/control/update', ensureAuthenticated, (req, res) => {
  * @apiVersion 1.0
  * @apiName changemap
  * @apiGroup Control
- 
+ *
+ * @apiParam {string} mapname filename of the map without extension (.bsp)
+ * @apiParamExample {string} Map-example
+ *     cs_italy
+ *
  * @apiSuccess {boolean} success
  * @apiSuccessExample {json}
  *     HTTP/1.1 200 OK
