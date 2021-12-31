@@ -13,7 +13,7 @@ module.exports = class serverInfo {
             //  'tags': [{ "tag": "" }] }
         ];
         this._mapFilterType = 'exclude'; // 'include / exclude',
-        this._mapFilters = []; // ['string', /regex/]
+    this._mapFilters = []; // [ {string} ]
         this._maxRounds = 0;
         this._score = {
             'T': 0,
@@ -50,11 +50,7 @@ module.exports = class serverInfo {
             return this._mapsAvail.filter( (map) => {
                 let found = false;
                 this._mapFilters.forEach( (filter) => {
-                    let currentFilter = filter
-                    if (filter.constructor.name != "RegExp") {
-                      currentFilter = new RegExp(filter)
-                    }
-                    if (currentFilter.test(map)) {
+                    if (map.includes(filter)) {
                       found = true;
                     }
                 });
@@ -81,11 +77,7 @@ module.exports = class serverInfo {
             return this._mapsDetails.filter( (map) => {
                 let found = false;
                 this._mapFilters.forEach( (filter) => {
-                    let currentFilter = filter
-                    if (filter.constructor.name != "RegExp") {
-                      currentFilter = new RegExp(filter)
-                    }
-                    if (currentFilter.test(map.name)) {
+                    if (map.name.includes(filter)) {
                       found = true;
                     }
                 });
@@ -100,37 +92,44 @@ module.exports = class serverInfo {
         }
     }
 
+// Map Filter Methods
     get mapFilterType() {
         return this._mapFilterType;
     }
     set mapFilterType(type) {
-        // only set if a valid string is given.
-        if ((type === 'include' || type === 'exclude')) {
+        if (type === 'include' || type === 'exclude') {
             this._mapFilterType = type;
+            this.serverInfoChanged.emit('change');
         }
     }
     get mapFilters() {
         return this._mapFilters;
     }
     mapFilterAdd(filter) {
-        this._mapFilters.push(filter)
+        this._mapFilters.push(filter);
+        this.serverInfoChanged.emit('change');
     }
     mapFilterRemove(itemToRemove) {
         if (this._mapFilters.length == 0) {
-            return;
+            return(0);
         }
-        if (typeof filter === number) {
-            this._mapFilters.splice(filter, 1);
+        if (typeof itemToRemove === 'number' && this._mapFilters.length > parseInt(itemToRemove)) {
+            console.log("removing number");
+            this._mapFilters.splice(parseInt(itemToRemove), 1);
+            this.serverInfoChanged.emit('change');
         } else {
             let newFilters = this._mapFilters.filter( (currentItem) => {
                 return (currentItem != itemToRemove);
             });
             this._mapFilters = newFilters;
+            this.serverInfoChanged.emit('change');
         }
+        return (this._mapFilters.length);
     }
     mapFilterReset() {
         this._mapFilterType = 'exclude';
         this._mapFilters = [];
+        this.serverInfoChanged.emit('change');
     }
 
     get maxRounds() {
