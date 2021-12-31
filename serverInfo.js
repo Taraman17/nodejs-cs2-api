@@ -4,7 +4,14 @@ module.exports = class serverInfo {
     constructor (options = {}) {
         // data section
         this._map = '';
-        this._mapsAvail = [];
+        this._mapsAvail = []
+        this._mapsDetails = [
+            //{ 'name': '',
+            //  'title': '',
+            //  'description': '',
+            //  'previewLink': '',
+            //  'tags': [{ "tag": "" }] }
+        ];
         this._mapFilterType = 'exclude'; // 'include / exclude',
         this._mapFilters = []; // ['string', /regex/]
         this._maxRounds = 0;
@@ -14,7 +21,7 @@ module.exports = class serverInfo {
         };
         this._players = [
             //{ 'name': '',
-            //  'steamID': ''
+            //  'steamID': '',
             //  'team': '' }
         ];
         
@@ -51,7 +58,6 @@ module.exports = class serverInfo {
                       found = true;
                     }
                 });
-                console.log(`for map ${map}, found is ${found.toString}`);
                 if (this._mapFilterType === 'include') {
                     return found;
                 } else {
@@ -60,6 +66,37 @@ module.exports = class serverInfo {
             });
         } else {
             return this._mapsAvail;
+        }
+    }
+
+    get mapsDetails() {
+        return this._mapsAvail;
+    }
+    set mapsDetails(newMapsDetails) {
+        this._mapsDetails = newMapsDetails;
+        this.serverInfoChanged.emit('change');
+    }
+    mapDetails() {
+        if (this._mapFilters.length > 0 ) {
+            return this._mapsDetails.filter( (map) => {
+                let found = false;
+                this._mapFilters.forEach( (filter) => {
+                    let currentFilter = filter
+                    if (filter.constructor.name != "RegExp") {
+                      currentFilter = new RegExp(filter)
+                    }
+                    if (currentFilter.test(map.name)) {
+                      found = true;
+                    }
+                });
+                if (this._mapFilterType === 'include') {
+                    return found;
+                } else {
+                    return !found;
+                }
+            });
+        } else {
+            return this._mapsDetails;
         }
     }
 
@@ -149,6 +186,7 @@ module.exports = class serverInfo {
         return {
             'map': this._map,
             'mapsAvail': this.mapList(),
+            'mapsDetails': this.mapDetails(),
             'maxRounds': this._maxRounds,
             'score': this._score,
             'players': this._players
