@@ -8,12 +8,13 @@ module.exports = class serverInfo {
         this._mapsDetails = [
             //{ 'name': '',
             //  'title': '',
+            //  'workshopID': '',
             //  'description': '',
             //  'previewLink': '',
             //  'tags': [{ "tag": "" }] }
         ];
         this._mapFilterType = 'exclude'; // 'include / exclude',
-    this._mapFilters = []; // [ {string} ]
+    this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
         this._maxRounds = 0;
         this._score = {
             'T': 0,

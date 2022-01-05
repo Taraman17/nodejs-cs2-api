@@ -148,19 +148,20 @@ function reloadMaplist() {
                             resJSON = JSON.parse(resData);
                             let previewLink = resJSON.response.publishedfiledetails[0].preview_url;
                             let title = resJSON.response.publishedfiledetails[0].title;
+                            let workshopID = resJSON.response.publishedfiledetails[0].publishedfileid;
                             let description = resJSON.response.publishedfiledetails[0].description;
                             let tags = resJSON.response.publishedfiledetails[0].tags;
-                            resolve({ "name": _mapName, "title": title, "description": description, "previewLink": previewLink, "tags": tags });
+                            resolve({ "name": _mapName, "title": title, "workshopID": workshopID, "description": description, "previewLink": previewLink, "tags": tags });
                         }
                         catch (e) {
-                            reject({ "name": _mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                            reject({ "name": _mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
                         }
                     });
                 });
 
                 steamApiRequest.on('error', error => {
                     logger.warn(`steamApiRequest not successful: ${error}`);
-                    reject({ "name": _mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                    reject({ "name": _mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
                 });
 
                 steamApiRequest.write(`itemcount=1&publishedfileids%5B0%5D=${mapId}`);
@@ -187,7 +188,7 @@ function reloadMaplist() {
                     if (workshopId != undefined) {
                         promises.push(_sendApiRequest(mapName, workshopId));
                     } else {
-                        mapdetails.push({ "name": mapName, "title": "", "description": "", "previewLink": "", "tags": "" });
+                        mapdetails.push({ "name": mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
                     }
                 }
             });
