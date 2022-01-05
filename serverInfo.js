@@ -4,7 +4,17 @@ module.exports = class serverInfo {
     constructor (options = {}) {
         // data section
         this._map = '';
-        this._mapsAvail = [];
+        this._mapsAvail = []
+        this._mapsDetails = [
+            //{ 'name': '',
+            //  'title': '',
+            //  'workshopID': '',
+            //  'description': '',
+            //  'previewLink': '',
+            //  'tags': [{ "tag": "" }] }
+        ];
+        this._mapFilterType = 'exclude'; // 'include / exclude',
+    this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
         this._maxRounds = 0;
         this._score = {
             'T': 0,
@@ -12,10 +22,10 @@ module.exports = class serverInfo {
         };
         this._players = [
             //{ 'name': '',
-            //  'steamID': ''
+            //  'steamID': '',
             //  'team': '' }
         ];
-        
+
         // emitter to notify of changes
         this.serverInfoChanged = new events.EventEmitter();
     }
@@ -34,6 +44,92 @@ module.exports = class serverInfo {
     }
     set mapsAvail(newMapsAvail) {
         this._mapsAvail = newMapsAvail;
+        this.serverInfoChanged.emit('change');
+    }
+    mapList() {
+        if (this._mapFilters.length > 0 ) {
+            return this._mapsAvail.filter( (map) => {
+                let found = false;
+                this._mapFilters.forEach( (filter) => {
+                    if (map.includes(filter)) {
+                      found = true;
+                    }
+                });
+                if (this._mapFilterType === 'include') {
+                    return found;
+                } else {
+                    return !found;
+                }
+            });
+        } else {
+            return this._mapsAvail;
+        }
+    }
+
+    get mapsDetails() {
+        return this._mapsAvail;
+    }
+    set mapsDetails(newMapsDetails) {
+        this._mapsDetails = newMapsDetails;
+        this.serverInfoChanged.emit('change');
+    }
+    mapDetails() {
+        if (this._mapFilters.length > 0 ) {
+            return this._mapsDetails.filter( (map) => {
+                let found = false;
+                this._mapFilters.forEach( (filter) => {
+                    if (map.name.includes(filter)) {
+                      found = true;
+                    }
+                });
+                if (this._mapFilterType === 'include') {
+                    return found;
+                } else {
+                    return !found;
+                }
+            });
+        } else {
+            return this._mapsDetails;
+        }
+    }
+
+// Map Filter Methods
+    get mapFilterType() {
+        return this._mapFilterType;
+    }
+    set mapFilterType(type) {
+        if (type === 'include' || type === 'exclude') {
+            this._mapFilterType = type;
+            this.serverInfoChanged.emit('change');
+        }
+    }
+    get mapFilters() {
+        return this._mapFilters;
+    }
+    mapFilterAdd(filter) {
+        this._mapFilters.push(filter);
+        this.serverInfoChanged.emit('change');
+    }
+    mapFilterRemove(itemToRemove) {
+        if (this._mapFilters.length == 0) {
+            return(0);
+        }
+        if (typeof itemToRemove === 'number' && this._mapFilters.length > parseInt(itemToRemove)) {
+            console.log("removing number");
+            this._mapFilters.splice(parseInt(itemToRemove), 1);
+            this.serverInfoChanged.emit('change');
+        } else {
+            let newFilters = this._mapFilters.filter( (currentItem) => {
+                return (currentItem != itemToRemove);
+            });
+            this._mapFilters = newFilters;
+            this.serverInfoChanged.emit('change');
+        }
+        return (this._mapFilters.length);
+    }
+    mapFilterReset() {
+        this._mapFilterType = 'exclude';
+        this._mapFilters = [];
         this.serverInfoChanged.emit('change');
     }
 
@@ -89,7 +185,8 @@ module.exports = class serverInfo {
     getAll() {
         return {
             'map': this._map,
-            'mapsAvail': this._mapsAvail,
+            'mapsAvail': this.mapList(),
+            'mapsDetails': this.mapDetails(),
             'maxRounds': this._maxRounds,
             'score': this._score,
             'players': this._players

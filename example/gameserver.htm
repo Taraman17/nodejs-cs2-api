@@ -98,9 +98,7 @@
         <input type="button" id="restart" class="text" onclick="restartRound()" value="Restart Round"/>
         <input type="button" id="changeMap" class="text" onclick="toggleMaplist()" value="Change Map"/>
         <div id="mapSelector">
-            <ul id="mapList">
-                <li id="noMaps">No maps loaded.</li>
-            </ul>
+            <!-- Map DIVs will be added here by javascript -->
         </div>
     </div>
     <div id="playerDropdown" class="dropdown-menu">
@@ -113,4 +111,11 @@
     <script type="text/javascript" src="js/gameserver.js"></script>
     <script type="text/javascript" src="js/onload.js"></script>
 </body>
+<template id="maptemplate">
+    <div class="map" onclick="showPlay(event);" ondblclick="changeMap(event);">
+        <p class="mapname"></p>
+        <img class="playicon" src="pic/playicon.png"/>
+        <img class="mapimg"/>
+    </div>
+</template>
 </html>

@@ -97,12 +97,10 @@ function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
     if (socket.readyState != 1) { // if websocket not connected
         getMaps();
-    } else if ($("#mapList li").length < 2) {
+    } else if ($("#mapSelector div").length < 2) {
         socket.send('infoRequest');
     }
     $('#startMap').hide(0);
-    $('#mapList').on( 'click', showPlay);
-    $('#mapList').on( 'dblclick', changeMap);
     $('#buttonStop').show(0);
     $('#buttonStart').hide(0);
     $('#buttonUpdate').hide(0);
@@ -145,6 +143,7 @@ function clickButton(aButton) {
             alert(`${operation} running.\nTry again in a moment.`);
         } else {
             alert(`command ${action} failed!\nError: ${errorText}`);
+            window.location.href = './notauth.htm';
         }
         if (socket.readyState != 1) {
             $('.container-popup').css('display', 'none');
@@ -182,13 +181,20 @@ function getMaps() {
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
         $("#currentMap").html(`Current map: ${data.map}`);
-        maplist = data.mapsAvail;
-        $("#mapList").empty();
-        for (map of maplist) {
-            var li = document.createElement("li");
-            li.appendChild(document.createTextNode(map));
-            $("#mapList").append(li);
-        }
+        maplist = data.mapsDetails;
+        $("#mapSelector").empty();
+        maplist.forEach( (map) => {
+           if ('content' in document.createElement('template')) {
+                var mapDiv = document.querySelector('#maptemplate');
+                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink);
+                $('#mapSelector').append(document.importNode(mapDiv.content, true));
+            } else {
+                let alttext = createElement('h2');
+                text.html("Your browser does not have HTML template support - please use another browser.");
+                $('#mapSelector').append(alttext);
+            }
+        });
     }).catch((error) => {
         // do nothing for now
     });
@@ -199,17 +205,19 @@ function toggleMaplist() {
 }
 
 function showPlay(event) {
-    if (event.target.classList.contains('active')) {
+    if (event.currentTarget.classList.contains('active')) {
         changeMap(event);
-        $('#mapSelector li').removeClass('active');
+        $('.map').removeClass('active');
     } else {
-        $('#mapSelector li').removeClass('active');
-        event.target.classList.add('active');
+        $('.active > .playicon').hide(0);
+        $('.active').removeClass('active');
+        event.currentTarget.classList.add('active');
+        event.currentTarget.children[1].style.display = 'block';
     }
 }
 
 function changeMap(event) {
-    let map = event.target.innerText;
+    let map = event.currentTarget.firstElementChild.textContent;
     $('#mapSelector').hide('fast');
     $('#popupCaption').text(titles['mapchange']);
     $('.container-popup').css('display', 'flex');
@@ -220,7 +228,9 @@ function changeMap(event) {
             $('#popupText').html(`Mapchange failed!`);
             window.setTimeout( () => {
                 $('.container-popup').css('display', 'none');
+                window.location.href = './notauth.htm';
             }, 2000);
+            
         }
     });
 }
@@ -254,4 +264,20 @@ function kill(caller) {
         caller.disabled = true;
         $('#killerror').show('fast');
     });
+}
+
+
+// Bot Training functions
+function setBotRules() {
+    sendGet(`${address}/rcon`, `message=mp_autoteambalance 0`);
+    sendGet(`${address}/rcon`, `message=mp_limitteams 0`);
+    sendGet(`${address}/rcon`, `message=bot_difficulty 3`);
+}
+function addBots(team, quantity) {
+    for(let i=0; i < quantity; i++) {
+        setTimeout(sendGet(`${address}/rcon`, `message=bot_add_${team}`), 100);
+    }
+}
+function kickBots() {
+    sendGet(`${address}/rcon`, `message=bot_kick all`);
 }

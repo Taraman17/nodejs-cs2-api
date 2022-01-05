@@ -31,6 +31,11 @@ p {
     align-items: center;
     justify-content: space-around;
 }
+#klosser-augen {
+    width: 40%;
+    min-width: 250px;
+    max-width: 400px;
+}
 #header-text {
     font-size: 2.5em;
     text-align: center;
@@ -59,6 +64,7 @@ p {
     display: none;
 }
 #startMap {
+    
 }
 #addControl {
     display: flex;
@@ -90,7 +96,6 @@ p {
 }
 #players h3 {
     margin-top: 10px;
-    margin-bottom: 10px;
     margin-bottom: 10px;
 }
 #players h4 {
@@ -127,6 +132,11 @@ p {
 }
 #mapSelector {
     display: none;
+}
+#bottraining {
+    display: none;
+    float: left;
+    width: 100%;
 }
 
 .text {
@@ -167,29 +177,39 @@ select {
     margin-left: 2em;
 }
 
-#mapSelector ul {
-    width: 100%;
-    list-style-type: none;
-    border: 1px solid;
-    padding: 0;
+#mapSelector {
+    display: flex;
+    flex-flow: row wrap;
+    gap: 10px;
+    margin-top: 10px;
 }
-#mapSelector li {
-    margin: 10px 1%;
-    padding: 7px;
+.map {
+    padding: 4px;
+    flex-basis: 400px;
+    max-width: 500px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    aspect-ratio: 3 / 2;
     border: 1px solid;
-    font-size: 25px;
-    display: block;
-    min-width: 230px;
-    width: 30%;
-    max-width: 320px;
+}
+.map.active{
+    background: #222222;
+}
+.mapname {
     float: left;
+    font-size: 30px;
+    margin-bottom: 10px;
 }
-#mapSelector li.active {
-    background-color: #222222;
-    background-image: url(pic/playicon.png);
-    background-repeat: no-repeat;
-    background-position: right;
-    background-size: contain;
+.playicon {
+    float: right;
+    width: 7%;
+    display: none;
+}
+.mapimg {
+    width: 100%;
+    height: auto;
+    left: 0%;
+    bottom: 100%;
 }
 
 /* wait popup */

@@ -34,15 +34,22 @@ $( document ).ready(() => {
                         $(`#${player.team.toLowerCase()}Players`).show(0);
                     }
                 }
-                if ($('#mapList li').length != serverInfo.mapsAvail.length) {
-                    if (serverInfo.mapsAvail) {
-                        let maplist = serverInfo.mapsAvail;
-                        $("#mapList").empty();
-                        for (map of maplist) {
-                            var li = document.createElement("li");
-                            li.appendChild(document.createTextNode(map));
-                            $("#mapList").append(li);
-                        }
+                if ($('#mapSelector .map').length != serverInfo.mapsDetails.length) {
+                    if (serverInfo.mapsDetails) {
+                        let maplist = serverInfo.mapsDetails;
+                        $("#mapSelector").empty();
+                        maplist.forEach( (map) => {
+                            if ('content' in document.createElement('template')) {
+                                var mapDiv = document.querySelector('#maptemplate');
+                                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                                mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink ? map.previewLink : '');
+                                $('#mapSelector').append(document.importNode(mapDiv.content, true));
+                            } else {
+                                let alttext = document.createElement('h2');
+                                text.html("Your browser does not have HTML template support - please use another browser.");
+                                $('#mapSelector').append(alttext);
+                            }
+                        });
                     }
                 }
             } else if (data.type == "commandstatus") {
@@ -55,6 +62,12 @@ $( document ).ready(() => {
                     setTimeout( () => {
                         $('.container-popup').css('display', 'none');
                         setupPage();
+                    }, 1500);
+                } else if (data.payload.state == 'fail') {
+                    $('#popupText').html(`${data.payload.operation} failed!`);
+                    setTimeout( () => {
+                        $('.container-popup').css('display', 'none');
+                        window.location.href = './notauth.htm';
                     }, 1500);
                 }
             } else if (data.type == "progress") {
