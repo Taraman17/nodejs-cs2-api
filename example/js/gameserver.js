@@ -97,12 +97,10 @@ function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
     if (socket.readyState != 1) { // if websocket not connected
         getMaps();
-    } else if ($("#mapList li").length < 2) {
+    } else if ($("#mapSelector div").length < 2) {
         socket.send('infoRequest');
     }
     $('#startMap').hide(0);
-    $('#mapList').on( 'click', showPlay);
-    $('#mapList').on( 'dblclick', changeMap);
     $('#buttonStop').show(0);
     $('#buttonStart').hide(0);
     $('#buttonUpdate').hide(0);
@@ -184,12 +182,18 @@ function getMaps() {
     serverInfo.then((data) => {
         $("#currentMap").html(`Current map: ${data.map}`);
         maplist = data.mapsDetails;
-        $("#mapList").empty();
+        $("#mapSelector").empty();
         maplist.forEach( (map) => {
-            var li = document.createElement("li");
-            li.appendChild(document.createTextNode(map.name));
-            li.style.backgroundImage = `url("${map.previewLink}")`;
-            $("#mapList").append(li);
+           if ('content' in document.createElement('template')) {
+                var mapDiv = document.querySelector('#maptemplate');
+                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink);
+                $('#mapSelector').append(document.importNode(mapDiv.content, true));
+            } else {
+                let alttext = createElement('h2');
+                text.html("Your browser does not have HTML template support - please use another browser.");
+                $('#mapSelector').append(alttext);
+            }
         });
     }).catch((error) => {
         // do nothing for now
@@ -201,17 +205,19 @@ function toggleMaplist() {
 }
 
 function showPlay(event) {
-    if (event.target.classList.contains('active')) {
+    if (event.currentTarget.classList.contains('active')) {
         changeMap(event);
-        $('#mapSelector li').removeClass('active');
+        $('.map').removeClass('active');
     } else {
-        $('#mapSelector li').removeClass('active');
-        event.target.classList.add('active');
+        $('.active > .playicon').hide(0);
+        $('.active').removeClass('active');
+        event.currentTarget.classList.add('active');
+        event.currentTarget.children[1].style.display = 'block';
     }
 }
 
 function changeMap(event) {
-    let map = event.target.innerText;
+    let map = event.currentTarget.firstElementChild.textContent;
     $('#mapSelector').hide('fast');
     $('#popupCaption').text(titles['mapchange']);
     $('.container-popup').css('display', 'flex');

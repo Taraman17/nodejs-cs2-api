@@ -34,15 +34,21 @@ $( document ).ready(() => {
                         $(`#${player.team.toLowerCase()}Players`).show(0);
                     }
                 }
-                if ($('#mapList li').length != serverInfo.mapsDetails.length) {
+                if ($('#mapSelector .map').length != serverInfo.mapsDetails.length) {
                     if (serverInfo.mapsDetails) {
                         let maplist = serverInfo.mapsDetails;
-                        $("#mapList").empty();
+                        $("#mapSelector").empty();
                         maplist.forEach( (map) => {
-                            var li = document.createElement("li");
-                            li.appendChild(document.createTextNode(map.name));
-                            li.style.backgroundImage = `url("${map.previewLink}")`;
-                            $("#mapList").append(li);
+                            if ('content' in document.createElement('template')) {
+                                var mapDiv = document.querySelector('#maptemplate');
+                                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                                mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink ? map.previewLink : '');
+                                $('#mapSelector').append(document.importNode(mapDiv.content, true));
+                            } else {
+                                let alttext = document.createElement('h2');
+                                text.html("Your browser does not have HTML template support - please use another browser.");
+                                $('#mapSelector').append(alttext);
+                            }
                         });
                     }
                 }
