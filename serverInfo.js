@@ -24,7 +24,7 @@ module.exports = class serverInfo {
             //  'steamID': '',
             //  'team': '' }
         ];
-        
+
         // emitter to notify of changes
         this.serverInfoChanged = new events.EventEmitter();
     }

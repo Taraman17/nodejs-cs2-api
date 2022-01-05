@@ -65,6 +65,30 @@ If you use the API in a web interface, you can set 'redirectPage' in the config 
 
 If you want to have a manual logout in your client, call '/csgoapi/v1.0/logout', which will redirect to '/csgoapi/v1.0/loginStatus' to confirm the success.
 
+### Map filtering
+Filters are used to limit the maps that are transmitted to clients with the serverInfo. Filtering here consists of filter strings and a filter type. The strings are matched as parts against the maps filenames. 'cs_' would match all hostage rescue maps, 'dust' would match all maps that have dust in their names (de_dust2, de_dust, etc.).
+The filter type controls if the matched maps are shown or hidden. 'inlcude' will include all matched maps in the mapsAvail and mapsDetails arrays of serverInfo, 'exclude' will hide them. For Example, if you want to play only bomb-defuse maps, you could set the filter type to 'include' and filter to 'de_'.
+The filter type can only be set globally and not per filter string.
+
+Current filter settings can be queried with
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter')
+```
+Return value is JSON: { "type": {string}, "filters": {array of strings} }
+
+Filter control works like this:
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/reset')
+$.post('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/<anAction>')
+```
+actions can be:
+- reset (get) -> Resets the filter to tpye 'exclude' and no filter strings.
+- add?filter= (post) -> Adds the given string to the filters.
+- remove?filter= (post) -> Removes the given string, if it exists.
+- type (post) -> Sets the filter type ('include' or 'exclude');
+
+If successful, the call will return the new filter-info, else a JSON error string. E.g.: { "error": "No filter was removed." }
+
 ### Server Control
 ```javascript
 $.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/control/<anAction>')
@@ -73,7 +97,7 @@ The /control message will return a JSON-String.
 'action' can have the following values:
 - status -> fetch the servers running status: { "running": true/false }
 - update -> update the server (may take quite some time): { "success": true/false }
-- start -> optional additional argument "startmap" (&startmap=mapname): { "success": true/false }
+- start -> optional additional argument "startmap" (?startmap=mapname): { "success": true/false }
 If run without startmap, server will be started with de_dust2.
 - stop -> stop the server with RCON 'quit': { "success": true/false }
 - kill -> use 'kill' command to shutdown the server, if RCON connection is not working: { "success": true/false }
