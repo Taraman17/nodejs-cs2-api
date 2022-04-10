@@ -1,10 +1,11 @@
 ﻿// Change here if you don't host the webInterfae on the same host as the NodeJS API
 var host = window.location.hostname;
-var address =`https://${host}:8090/csgoapi/v1.0`;
+var address = `https://${host}:8090/csgoapi`;
+var apiPath = `${address}/v1.0`
 var maplistFile = './maplist.txt';
 
 // Titles for throbber window.
-var titles = { 
+var titles = {
     'start': 'Starting server',
     'stop': 'Stopping server',
     'auth': 'Authenticating RCON',
@@ -16,7 +17,7 @@ var authenticated = false;
 
 // Redirect to login page.
 function doLogin() {
-     window.location.href = `${address}/login`;
+    window.location.href = `${address}/login`;
 }
 
 // Sends a get Request with the headers needed for authentication with the seesion cookie.
@@ -39,7 +40,7 @@ function loadMaplist() {
     // The Maplist file can be taken from the csgo folder.
     $.get(maplistFile, (data) => {
         let lines = data.split(/\r\n|\n/);
-        lines.forEach( (map) => {
+        lines.forEach((map) => {
             $("#mapAuswahl").append(`<option value="${map}">${map}</option>`);
         });
     });
@@ -55,12 +56,12 @@ function setupPage() {
     let loginCheck = getPromise('loginStatus');
     loginCheck.then((data) => {
         if (data.login) {
-            let authenticated = getPromise('info/rconauthstatus');
+            let authenticated = getPromise('v1.0/info/rconauthstatus');
             authenticated.then((data) => {
                 if (data.rconauth) {
                     setupServerRunning();
                 } else {
-                    let serverRunning = getPromise('info/runstatus');
+                    let serverRunning = getPromise('v1.0/info/runstatus');
                     serverRunning.then((data) => {
                         if (data.running) {
                             window.location.href = './notauth.htm';
@@ -93,6 +94,7 @@ function setupNotLoggedIn() {
     $('#serverInfo').hide(0);
     $('#mapControl').hide(0);
 }
+
 function setupServerRunning() {
     $('#power-image').attr('src', 'pic/power-on.png');
     if (socket.readyState != 1) { // if websocket not connected
@@ -109,6 +111,7 @@ function setupServerRunning() {
     $('#serverInfo').css('display', 'flex');
     $('#mapControl').show(0);
 }
+
 function setupServerStopped() {
     $('#power-image').attr('src', 'pic/power-off.png');
     $('#startMap').show(0);
@@ -129,7 +132,7 @@ function clickButton(aButton) {
     $('.container-popup').css('display', 'flex');
     startMap = document.getElementById('mapAuswahl').value;
 
-    sendGet(`${address}/control/${action}`, `startmap=${startMap}`).done(( data ) => {
+    sendGet(`${apiPath}/control/${action}`, `startmap=${startMap}`).done((data) => {
         if (socket.readyState != 1) { // if websocket not connected
             if (action != 'update') {
                 setupPage();
@@ -156,12 +159,13 @@ function showPlayerMenu(event) {
     $('#playerDropdown').attr('player', event.target.textContent);
     // Close the dropdown menu if the user clicks outside of it
     window.onclick = function(event) {
-      if (!event.target.matches('.dropbtn')) {
-        $('#playerDropdown').css('display', 'none');
-        window.onclick = '';
-      }
+        if (!event.target.matches('.dropbtn')) {
+            $('#playerDropdown').css('display', 'none');
+            window.onclick = '';
+        }
     }
 }
+
 function movePlayer(event) {
     // This function uses sourcemod plugin "moveplayers" -> https://forums.alliedmods.net/showthread.php?p=2471466
     /* "sm_movect"                        - Move a player to the counter-terrorist team.
@@ -169,22 +173,22 @@ function movePlayer(event) {
        "sm_movet"                         - Move a player to the terrorist team. */
     let player = event.target.parentElement.getAttribute('player')
     let command = event.target.getAttribute('command');
-    sendGet(`${address}/rcon`, `message=sm_move${command} "${player}"`, ( data ) => {
+    sendGet(`${apiPath}/rcon`, `message=sm_move${command} "${player}"`, (data) => {
         // no actions for now.
     });
 }
 
 function getMaps() {
     function getServerInfo() {
-        return Promise.resolve(sendGet(`${address}/info/serverInfo`));
+        return Promise.resolve(sendGet(`${apiPath}/info/serverInfo`));
     }
     let serverInfo = getServerInfo();
     serverInfo.then((data) => {
         $("#currentMap").html(`Current map: ${data.map}`);
         maplist = data.mapsDetails;
         $("#mapSelector").empty();
-        maplist.forEach( (map) => {
-           if ('content' in document.createElement('template')) {
+        maplist.forEach((map) => {
+            if ('content' in document.createElement('template')) {
                 var mapDiv = document.querySelector('#maptemplate');
                 mapDiv.content.querySelector('.mapname').textContent = map.name;
                 mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink);
@@ -221,33 +225,33 @@ function changeMap(event) {
     $('#mapSelector').hide('fast');
     $('#popupCaption').text(titles['mapchange']);
     $('.container-popup').css('display', 'flex');
-    sendGet(`${address}/control/changemap`, `map=${map}`, (data) => {
+    sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
             $('#popupText').html(`Changing map to ${map}`);
         } else {
             $('#popupText').html(`Mapchange failed!`);
-            window.setTimeout( () => {
+            window.setTimeout(() => {
                 $('.container-popup').css('display', 'none');
                 window.location.href = './notauth.htm';
             }, 2000);
-            
+
         }
     });
 }
 
 function restartRound() {
-    sendGet(`${address}/rcon`, `message=mp_restartgame 1`, ( data ) => {
+    sendGet(`${apiPath}/rcon`, `message=mp_restartgame 1`, (data) => {
         $('#popupCaption').text(`Restart Round`);
         $('#popupText').html(`Round Restarted!`);
         $('.container-popup').css('display', 'flex');
-        window.setTimeout( () => {
+        window.setTimeout(() => {
             $('.container-popup').css('display', 'none');
         }, 1000);
     });
 }
 
-function authenticate (caller) {
-    sendGet(`${address}/authenticate`).done((data) => {
+function authenticate(caller) {
+    sendGet(`${apiPath}/authenticate`).done((data) => {
         if (data.authenticated) {
             window.location.href = './gameserver.htm';
         } else {
@@ -256,11 +260,12 @@ function authenticate (caller) {
         }
     });
 }
+
 function kill(caller) {
-    
-    sendGet(`${address}/control/kill`).done((data) => {
+
+    sendGet(`${apiPath}/control/kill`).done((data) => {
         window.location.href = './gameserver.htm';
-    }).fail ((error) => {
+    }).fail((error) => {
         caller.disabled = true;
         $('#killerror').show('fast');
     });
@@ -269,15 +274,17 @@ function kill(caller) {
 
 // Bot Training functions
 function setBotRules() {
-    sendGet(`${address}/rcon`, `message=mp_autoteambalance 0`);
-    sendGet(`${address}/rcon`, `message=mp_limitteams 0`);
-    sendGet(`${address}/rcon`, `message=bot_difficulty 3`);
+    sendGet(`${apiPath}/rcon`, `message=mp_autoteambalance 0`);
+    sendGet(`${apiPath}/rcon`, `message=mp_limitteams 0`);
+    sendGet(`${apiPath}/rcon`, `message=bot_difficulty 3`);
 }
+
 function addBots(team, quantity) {
-    for(let i=0; i < quantity; i++) {
-        setTimeout(sendGet(`${address}/rcon`, `message=bot_add_${team}`), 100);
+    for (let i = 0; i < quantity; i++) {
+        setTimeout(sendGet(`${apiPath}/rcon`, `message=bot_add_${team}`), 100);
     }
 }
+
 function kickBots() {
-    sendGet(`${address}/rcon`, `message=bot_kick all`);
+    sendGet(`${apiPath}/rcon`, `message=bot_kick all`);
 }
