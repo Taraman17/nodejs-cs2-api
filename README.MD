@@ -6,7 +6,7 @@ It exposes control of your server and shell functions to the internet. Although 
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
 ## NOTE:
-This Release (v0.8) changes the API end Points to facilitate versioning of the API.
+Release 0.8 changed the API end Points to facilitate versioning of the API.
 The old Endpoints will be available for some time to allow for a transition time. I expect to remove them with Version 1.0.
 
 ### Breaking changes:
