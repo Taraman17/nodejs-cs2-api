@@ -28,6 +28,7 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const passport = require('passport');
 const SteamStrategy = require('passport-steam').Strategy;
+const BasicStrategy = require('passport-http').BasicStrategy;
 const webSocket = require('ws');
 const url = require('url');
 const fs = require('fs');
@@ -107,6 +108,7 @@ controlEmitter.on('exec', (operation, action) => {
  * Creates an express server to handle the API requests
  */
 const app = express();
+var apiV10 = require('./modules/apiV10.js');
 const limit = rateLimit({
     max: 50, // max requests
     windowMs: 60 * 1000, // 1 Minute
@@ -178,7 +180,7 @@ function ensureAuthenticated(req, res, next) {
             return res.status(401).send('User not in Admin list.');
         }
     }
-    logger.info({
+    logger.warn({
         'user': 'unknown',
         'message': `Unauthorized Access from ${req.ip}.`
     });
@@ -221,7 +223,7 @@ app.get('/csgoapi/login/return',
  * @apiName Logout
  * @apiGroup Auth
  *
- * @apiSuccess (302) Redirect to confiured page.
+ * @apiSuccess (302) Redirect to configured page.
  */
 app.get('/csgoapi/logout', (req, res) => {
     logger.http({
@@ -252,21 +254,43 @@ app.get('/csgoapi/loginStatus', (req, res) => {
         res.json({ "login": false });
     }
 });
+
+app.use('/csgoapi/v1.0/', ensureAuthenticated, apiV10);
 //------------------------ END Steam authentication ----------------------------//
 
-//------------------------ Routes with steam auth ----------------------------//
-var apiV10 = require('./modules/apiV10.js');
-app.use('/csgoapi/v1.0/', ensureAuthenticated, apiV10);
-//------------------------ END Routes with steam auth ----------------------------//
+//------------------------ Basic authentication ----------------------------//
+if (cfg.httpAuth) {
+    passport.use(new BasicStrategy({ qop: 'auth', passReqToCallback: true },
+        (req, username, password, done) => {
+            if (username == cfg.httpUser.username) {
+                if (password == cfg.httpUser.password) {
+                    return done(null, cfg.httpUser.username);
+                } else {
+                    logger.warn({
+                        'user': username,
+                        'message': `Unauthorized http Access - wrong Password - from ${req.ip}.`
+                    });
+                    return done(null, false);
+                }
+            } else {
+                logger.warn({
+                    'user': username,
+                    'message': `Unauthorized http Access - unknown user - from ${req.ip}.`
+                });
+                return done(null, false);
+            }
+        }
+    ));
 
-
+    app.use('/csgoapi/http/v1.0/', passport.authenticate('basic', { session: false }), apiV10);
+}
+//--------------------- END Basic authentication --------------------------//
 
 if (cfg.useHttps) {
     var server = http.createServer(httpsCredentials, app);
 } else {
     var server = http.createServer(app);
 }
-
 server.listen(cfg.apiPort);
 
 /*----------------- WebSockets Code -------------------*/

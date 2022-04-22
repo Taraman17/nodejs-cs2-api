@@ -7,6 +7,7 @@
     "local-ip": "^2.0.0",
     "node-pty": "^0.10.1",
     "passport": "^0.4.1",
+    "passport-http": "^0.3.0",
     "passport-steam": "^1.0.15",
     "rcon-srcds": "^2.0.1",
     "srcds-log-receiver": "^1.0.2",
@@ -21,7 +22,6 @@
   "directories": {
     "example": "example"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

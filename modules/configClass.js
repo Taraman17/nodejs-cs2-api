@@ -26,6 +26,13 @@ class config {
         return this._userOptions.loginValidity * 60000;
     }
 
+    get httpAuth() {
+        return this._userOptions.httpAuth;
+    }
+    get httpUser() {
+        return this._userOptions.httpUser;
+    }
+
     get iface() {
         return this._userOptions.iface;
     }

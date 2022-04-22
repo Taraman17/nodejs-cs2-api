@@ -16,6 +16,10 @@
     "redirectPage": "/loginStatus",
     // Time in minutes, after which a new login is needed.
     "loginValidity": 300,
+    // Use digest authentication [true/false]
+    "httpAuth": false,
+    // User for digest Authentication. Password needs to be hashed with TBD
+    "httpUser": { "username": "", "password": "" },
     // Port, the webserver for API calls listens on.
     "apiPort": 8090,
     // Set to true if you use Websockets for status updates.
