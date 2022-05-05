@@ -6,17 +6,22 @@ It exposes control of your server and shell functions to the internet. Although 
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
 ## NOTE:
-Release 0.8 changed the API end Points to facilitate versioning of the API.
-The old Endpoints will be available for some time to allow for a transition time. I expect to remove them with Version 1.0.
+Release 1.0 changed structure of the code to enable further development.
+See below for changes.
 
 ### Breaking changes:
-- mapchange completed reporting via websocket will be changed to the standard command status reporting. See below for details.
-- control?action=status is deprecated. use /control/runningstatus & /control/rconauthstatus instead.
+- Config logic has been separated from configClass - make sure to backup your config! You can copy the config part from the old file to the new "./config.js"
+- steam account used for updating the server has been deleted from the config - it has to go in your update-Script.
+- login code has been seperated from the api calls. New location is "http://<your-servers-address>:<your-port>/csgoapi/login" ISO "http://<your-servers-address>:<your-port>/csgoapi/v1.0/login"
 
 ## Install
 download the script files to and install the dependencies for nodejs
 ```console
 npm install --save rcon-srcds srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
+```
+If you want to use http authentication, add
+```console
+npm install --save passport-http
 ```
 
 ## Configuration
@@ -54,16 +59,16 @@ For better readability, $.get() is used in the following examples
 
 ### Login / Logout
 ```javascript
-$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/login')
-$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/logout')
-$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/loginStatus')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/login')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/logout')
+$.get('http://<your-servers-address>:<your-port>/csgoapi/loginStatus')
 ```
 
-For Authentication the API redirects to the Steam login page by calling '/csgoapi/v1.0/login'
-After authentication there, it will return to '/csgoapi/v1.0/loginStatus' by default, returning { "login": true/false }.
+For Authentication the API redirects to the Steam login page by calling '/csgoapi/login'
+After authentication there, it will return to '/csgoapi/loginStatus' by default, returning { "login": true/false }.
 If you use the API in a web interface, you can set 'redirectPage' in the config to your startPage (e.g. http://your-webserver/index.html) This way, you can call up the login page and then be returned to your web application after you got the session cookie in your browser.
 
-If you want to have a manual logout in your client, call '/csgoapi/v1.0/logout', which will redirect to '/csgoapi/v1.0/loginStatus' to confirm the success.
+If you want to have a manual logout in your client, call '/csgoapi/logout', which will redirect to '/csgoapi/loginStatus' to confirm the success.
 
 ### Map filtering
 Filters are used to limit the maps that are transmitted to clients with the serverInfo. Filtering here consists of filter strings and a filter type. The strings are matched as parts against the maps filenames. 'cs_' would match all hostage rescue maps, 'dust' would match all maps that have dust in their names (de_dust2, de_dust, etc.).
@@ -146,12 +151,20 @@ UpdateProgress looks as follows:
 ```javascript
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
-
-mapchange message (deprecated, do not use anymore):
-```javascript
-{ "type": "mapchange", "payload": { "success": true/false }
+## Api calls with http authentication
+For stateless API-Calls via command line or other automatic tools the http basic authentication can be activated in the config with
 ```
-false is sent after a 30 sec. timeout when no "Started map" log has been received.
+"httpAuth": true,
+"httpUser": { "username": "", "password": "" },
+```
+For now, only one user can be specified.
+
+**If you enable this option, you should use https to avoid sending of paswords in the clear.**
+
+The interface is:
+```
+http://<your-servers-address>:<your-port>/csgoapi/http/v1.0/...
+```
 
 ## Example
 An example of a webinterface is available in the folder "example"

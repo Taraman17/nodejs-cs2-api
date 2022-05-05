@@ -1,7 +1,24 @@
 const events = require('events');
 
-module.exports = class serverInfo {
-    constructor (options = {}) {
+class serverInfo {
+    constructor(options = {}) {
+        /**
+         * Stores the state of the controlled server-instance.
+         * @typedef  serverState
+         * @property {string}  operationPending -  1 of: none, start, stop, mapchange, update, auth.
+         * @property {boolean}  serverRunning    - Is the server process running.
+         * @property {object}   serverRcon       - rcon-srcds instance for the server.
+         * @property {boolean}  authenticated    - Is the rcon instance authenticated with the server.
+         */
+
+        /** @type {serverState} */
+        this._serverState = {
+            'operationPending': 'none',
+            'serverRunning': false,
+            'serverRcon': undefined,
+            'authenticated': false
+        }
+
         // data section
         this._map = '';
         this._mapsAvail = []
@@ -14,7 +31,7 @@ module.exports = class serverInfo {
             //  'tags': [{ "tag": "" }] }
         ];
         this._mapFilterType = 'exclude'; // 'include / exclude',
-    this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
+        this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
         this._maxRounds = 0;
         this._score = {
             'T': 0,
@@ -30,7 +47,14 @@ module.exports = class serverInfo {
         this.serverInfoChanged = new events.EventEmitter();
     }
 
-// getter / setter
+    // getter / setter
+    get serverState() {
+        return this._serverState;
+    }
+    set serverState(newVal) {
+        this._serverState[expr] = newVal;
+    }
+
     get map() {
         return this._map;
     }
@@ -47,12 +71,12 @@ module.exports = class serverInfo {
         this.serverInfoChanged.emit('change');
     }
     mapList() {
-        if (this._mapFilters.length > 0 ) {
-            return this._mapsAvail.filter( (map) => {
+        if (this._mapFilters.length > 0) {
+            return this._mapsAvail.filter((map) => {
                 let found = false;
-                this._mapFilters.forEach( (filter) => {
+                this._mapFilters.forEach((filter) => {
                     if (map.includes(filter)) {
-                      found = true;
+                        found = true;
                     }
                 });
                 if (this._mapFilterType === 'include') {
@@ -74,12 +98,12 @@ module.exports = class serverInfo {
         this.serverInfoChanged.emit('change');
     }
     mapDetails() {
-        if (this._mapFilters.length > 0 ) {
-            return this._mapsDetails.filter( (map) => {
+        if (this._mapFilters.length > 0) {
+            return this._mapsDetails.filter((map) => {
                 let found = false;
-                this._mapFilters.forEach( (filter) => {
+                this._mapFilters.forEach((filter) => {
                     if (map.name.includes(filter)) {
-                      found = true;
+                        found = true;
                     }
                 });
                 if (this._mapFilterType === 'include') {
@@ -93,7 +117,7 @@ module.exports = class serverInfo {
         }
     }
 
-// Map Filter Methods
+    // Map Filter Methods
     get mapFilterType() {
         return this._mapFilterType;
     }
@@ -112,14 +136,14 @@ module.exports = class serverInfo {
     }
     mapFilterRemove(itemToRemove) {
         if (this._mapFilters.length == 0) {
-            return(0);
+            return (0);
         }
         if (typeof itemToRemove === 'number' && this._mapFilters.length > parseInt(itemToRemove)) {
             console.log("removing number");
             this._mapFilters.splice(parseInt(itemToRemove), 1);
             this.serverInfoChanged.emit('change');
         } else {
-            let newFilters = this._mapFilters.filter( (currentItem) => {
+            let newFilters = this._mapFilters.filter((currentItem) => {
                 return (currentItem != itemToRemove);
             });
             this._mapFilters = newFilters;
@@ -142,9 +166,9 @@ module.exports = class serverInfo {
     }
 
     get score() {
-        return this._score;
-    }
-    // Accepts array with team (T or C) and score.
+            return this._score;
+        }
+        // Accepts array with team (T or C) and score.
     set score(newScoreArray) {
         this._score[newScoreArray[1]] = parseInt(newScoreArray[2]);
         this.serverInfoChanged.emit('change');
@@ -159,16 +183,16 @@ module.exports = class serverInfo {
         this.serverInfoChanged.emit('change');
     }
     assignPlayer(steamID, team) {
-        for (let i=0; i < this._players.length; i++) {
+        for (let i = 0; i < this._players.length; i++) {
             if (this._players[i].steamID == steamID) {
-                this._players[i].team = team.substr(0,1);
+                this._players[i].team = team.substr(0, 1);
                 i = this._players.length;
             }
         }
         this.serverInfoChanged.emit('change');
     }
     removePlayer(steamID) {
-        for (let i=0; i < this._players.length; i++) {
+        for (let i = 0; i < this._players.length; i++) {
             if (this._players[i].steamID == steamID) {
                 this._players.splice(i, 1);
                 i = this._players.length;
@@ -199,3 +223,5 @@ module.exports = class serverInfo {
         this.serverInfoChanged.emit('change');
     }
 };
+
+module.exports = new serverInfo();
