@@ -264,6 +264,10 @@ if (cfg.httpAuth) {
         (req, username, password, done) => {
             if (username == cfg.httpUser.username) {
                 if (password == cfg.httpUser.password) {
+                    logger.http({
+                        "user": username,
+                        "message": `${req.method}:${req.url}`
+                    });
                     return done(null, cfg.httpUser.username);
                 } else {
                     logger.warn({
