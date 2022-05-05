@@ -19,6 +19,10 @@ download the script files to and install the dependencies for nodejs
 ```console
 npm install --save rcon-srcds srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
 ```
+If you want to use http authentication, add
+```console
+npm install --save passport-http
+```
 
 ## Configuration
 The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 9871
@@ -147,12 +151,20 @@ UpdateProgress looks as follows:
 ```javascript
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
-
-mapchange message (deprecated, do not use anymore):
-```javascript
-{ "type": "mapchange", "payload": { "success": true/false }
+## Api calls with http authentication
+For stateless API-Calls via command line or other automatic tools the http basic authentication can be activated in the config with
 ```
-false is sent after a 30 sec. timeout when no "Started map" log has been received.
+"httpAuth": true,
+"httpUser": { "username": "", "password": "" },
+```
+For now, only one user can be specified.
+
+If you enable this option, you should use https to avoid sending of paswords in the clear.
+
+The interface is:
+```
+http://<your-servers-address>:<your-port>/csgoapi/http/v1.0/...
+```
 
 ## Example
 An example of a webinterface is available in the folder "example"

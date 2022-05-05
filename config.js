@@ -16,7 +16,7 @@
     "redirectPage": "/loginStatus",
     // Time in minutes, after which a new login is needed.
     "loginValidity": 300,
-    // Use digest authentication [true/false]
+    // Use http authentication [true/false]
     "httpAuth": false,
     // User for digest Authentication. Password needs to be hashed with TBD
     "httpUser": { "username": "", "password": "" },
