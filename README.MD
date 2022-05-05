@@ -159,7 +159,7 @@ For stateless API-Calls via command line or other automatic tools the http basic
 ```
 For now, only one user can be specified.
 
-If you enable this option, you should use https to avoid sending of paswords in the clear.
+**If you enable this option, you should use https to avoid sending of paswords in the clear.**
 
 The interface is:
 ```
