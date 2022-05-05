@@ -438,6 +438,10 @@ router.get('/control/update', (req, res) => {
                 controlEmitter.emit('progress', 'Verifying client installation', 0);
             } else if (data.indexOf('Logging in user') != -1) {
                 controlEmitter.emit('progress', 'Logging in steam user', 0);
+            } else if (data.indexOf('FAILED') != -1) {
+                let rex = /FAILED \((.+)\)/;
+                let matches = rex.exec(data);
+                controlEmitter.emit('progress', `Login Failed: ${matches[1]}`, 0);
             } else if (data.indexOf('Logged in OK') != -1) {
                 controlEmitter.emit('progress', 'Login OK', 100);
             } else if (data.indexOf('Update state (0x') != -1) {
@@ -463,7 +467,7 @@ router.get('/control/update', (req, res) => {
                     if (!updateSuccess) {
                         logger.warn('Update exited without success.');
                         controlEmitter.emit('progress', 'Update failed!', 100);
-                        controlEmitter.emit('exec', 'update', 'end');
+                        controlEmitter.emit('exec', 'update', 'fail');
                     }
                 });
             } else {

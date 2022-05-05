@@ -332,16 +332,13 @@ if (cfg.webSockets) {
          * @param {string} action (start, end, fail)
          */
         var sendControlNotification = (operation, action) => {
-                ws.send(`{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${action}" } }`);
-                // For backward compatibility, this is still sent, will be deleted with version 1.0
-                if (operation == 'mapchange' && action != 'start') {
-                    ws.send(`{ "type": "mapchange", "payload": { "success": ${(action == 'end')} } }`);
-                }
-            }
-            /**
-             * Listens for execution notification of control operations.
-             * @listens controlEmitter#exec
-             */
+            ws.send(`{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${action}" } }`);
+        }
+
+        /**
+         * Listens for execution notification of control operations.
+         * @listens controlEmitter#exec
+         */
         controlEmitter.on('exec', sendControlNotification);
 
         /** 
@@ -350,12 +347,13 @@ if (cfg.webSockets) {
          * @param {int} progress - Integer representing the percentage of the action that is completed.
          */
         var reportProgress = (action, progress) => {
-                ws.send(`{ "type": "progress", "payload": { "step": "${action}", "progress": ${progress} } }`);
-            }
-            /**
-             * Listens for progress reporst from update process and sends them to the client.
-             * @listens controlEmitter#progress
-             */
+            ws.send(`{ "type": "progress", "payload": { "step": "${action}", "progress": ${progress} } }`);
+        }
+
+        /**
+         * Listens for progress reporst from update process and sends them to the client.
+         * @listens controlEmitter#progress
+         */
         controlEmitter.on('progress', reportProgress);
 
         /**

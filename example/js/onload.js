@@ -1,6 +1,6 @@
 ﻿// what to do after document is loaded.
 var socket = null;
-$( document ).ready(() => {
+$(document).ready(() => {
     let startSocket = () => {
         try {
             socket = new WebSocket(`wss://${host}:8091`);
@@ -28,7 +28,7 @@ $( document ).ready(() => {
                 $('.playerDiv ul').empty();
                 $('.playerDiv').hide(0);
                 if (serverInfo.players.length > 0) {
-                    for (let i=0; i < serverInfo.players.length; i++) {
+                    for (let i = 0; i < serverInfo.players.length; i++) {
                         let player = serverInfo.players[i];
                         $(`#${player.team.toLowerCase()}List`).append(`<li class="dropbtn">${player.name}</li>`);
                         $(`#${player.team.toLowerCase()}Players`).show(0);
@@ -38,7 +38,7 @@ $( document ).ready(() => {
                     if (serverInfo.mapsDetails) {
                         let maplist = serverInfo.mapsDetails;
                         $("#mapSelector").empty();
-                        maplist.forEach( (map) => {
+                        maplist.forEach((map) => {
                             if ('content' in document.createElement('template')) {
                                 var mapDiv = document.querySelector('#maptemplate');
                                 mapDiv.content.querySelector('.mapname').textContent = map.name;
@@ -59,16 +59,18 @@ $( document ).ready(() => {
                     $('.container-popup').css('display', 'flex');
                 } else if (data.payload.state == 'end' && data.payload.operation != 'start') {
                     $('#popupText').html(`${data.payload.operation} success!`);
-                    setTimeout( () => {
+                    setTimeout(() => {
                         $('.container-popup').css('display', 'none');
                         setupPage();
                     }, 1500);
                 } else if (data.payload.state == 'fail') {
                     $('#popupText').html(`${data.payload.operation} failed!`);
-                    setTimeout( () => {
+                    setTimeout(() => {
                         $('.container-popup').css('display', 'none');
-                        window.location.href = './notauth.htm';
-                    }, 1500);
+                        if (data.payload.operation != 'update') {
+                            window.location.href = './notauth.htm';
+                        }
+                    }, 3000);
                 }
             } else if (data.type == "progress") {
                 $('#popupText').html(`${data.payload.step}: ${data.payload.progress}%`);
