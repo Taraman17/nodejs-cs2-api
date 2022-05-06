@@ -1,4 +1,4 @@
-# CS:GO Server Control with a Nodejs-powered web-API
+# CS:GO Server Control with a Nodejs-powered web-API (LINUX only)
 
 ## Disclaimer
 The use of this software is at your own risk.
@@ -14,7 +14,15 @@ See below for changes.
 - steam account used for updating the server has been deleted from the config - it has to go in your update-Script.
 - login code has been seperated from the api calls. New location is "http://<your-servers-address>:<your-port>/csgoapi/login" ISO "http://<your-servers-address>:<your-port>/csgoapi/v1.0/login"
 
+## Prerequisites
+- steam CLI
+- CS:GO dedicated server
+- NodeJS 13.X or higher
+
 ## Install
+Download the nodejs-csgo-api-vX.X.zip and unpack.
+
+**OR**
 download the script files to and install the dependencies for nodejs
 ```console
 npm install --save rcon-srcds srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
@@ -38,15 +46,20 @@ logaddress_add xxx.xxx.xxx.xxx:9871
 - The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/<steamid>). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['<steamid-1>', '<steamid-2>'].
 - Since with credentials the CORS-Header is not allowed to be set to 'Allow-origin: *' the allowed origin(s) have to be set in the configuration at 'corsOrigin'.
 
-
-## Usage
+## Starting
 Start the script with 
 ```console
 node serverControl.js
 ```
-Then use the following GET Messages to control the server. If you have certificates configured, you can also use https:// (These examples assume usage of jquery):
 
-Note: Due to authentication, you will have to use $.ajax() with the following options.
+To start the API on boot and have it running in the background, I recommend [Forever](https://github.com/foreversd/forever)
+
+## Usage
+*NOTE: For API calls with basic http authentication see below.*
+
+Use the following GET Messages to control the server. If you have certificates configured, you can also use https:// (These examples assume usage of jquery):
+
+Note: Due to authentication with Steam, you will have to use $.ajax() with the following options.
 ```javascript
 $.ajax({
   crossDomain: true,
