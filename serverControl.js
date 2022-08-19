@@ -319,7 +319,7 @@ if (cfg.webSockets) {
          * @listens ws#message
          */
         ws.on('message', (message) => {
-            if (message.search('infoRequest') != -1) {
+            if (message.toString().search('infoRequest') != -1) {
                 sendUpdate();
             }
         });
