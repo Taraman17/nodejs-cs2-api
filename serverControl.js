@@ -96,9 +96,9 @@ controlEmitter.on('exec', (operation, action) => {
             serverInfo.map = sf.cutMapName(mapstring);
         });
         sf.reloadMaplist().then((answer) => {
-            if (answer == '{ "success": false }') {
-                logger.warn("Maps could not be loaded");
-            }
+            logger.info('Maps reloaded');
+        }).catch((err) => {
+            logger.warn("Maps could not be loaded");
         });
     }
 });

@@ -143,16 +143,16 @@ function reloadMaplist() {
                 maplist.sort();
                 // Only return, if list has at least one item.
                 if (maplist.length > 0) {
-                    logger.debug("Saving Maplist to ServerInfo");
+                    logger.debug('Saving Maplist to ServerInfo');
                     serverInfo.mapsAvail = maplist;
                     serverInfo.mapsDetails = mapdetails;
                     resolve({ "success": true });
                 } else {
-                    resolve({ "success": false });
+                    reject({ "success": false });
                 }
             });
         }).catch((err) => {
-            resolve({ "success": false });
+            reject({ "success": false });
         });
     });
 }
@@ -168,7 +168,7 @@ function executeRcon(message) {
         serverInfo.serverState.serverRcon.execute(message).then((answer) => {
             resolve(answer);
         }).catch((err) => {
-            logger.error(`RCON Error: ${err}`);
+            logger.error(`RCON Error: ${err.message}`);
             reject(err.message);
         });
     });
