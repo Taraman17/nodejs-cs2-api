@@ -96,9 +96,9 @@ controlEmitter.on('exec', (operation, action) => {
             serverInfo.map = sf.cutMapName(mapstring);
         });
         sf.reloadMaplist().then((answer) => {
-            if (answer == '{ "success": false }') {
-                logger.warn("Maps could not be loaded");
-            }
+            logger.info('Maps reloaded');
+        }).catch((err) => {
+            logger.warn("Maps could not be loaded");
         });
     }
 });
@@ -319,7 +319,7 @@ if (cfg.webSockets) {
          * @listens ws#message
          */
         ws.on('message', (message) => {
-            if (message.search('infoRequest') != -1) {
+            if (message.toString().search('infoRequest') != -1) {
                 sendUpdate();
             }
         });

@@ -101,11 +101,13 @@ class serverInfo {
         if (this._mapFilters.length > 0) {
             return this._mapsDetails.filter((map) => {
                 let found = false;
-                this._mapFilters.forEach((filter) => {
-                    if (map.name.includes(filter)) {
-                        found = true;
-                    }
-                });
+                if (map.name) { // sometimes map.name is undefined for some reason.
+                    this._mapFilters.forEach((filter) => {
+                        if (map.name.includes(filter)) {
+                            found = true;
+                        }
+                    });
+                }
                 if (this._mapFilterType === 'include') {
                     return found;
                 } else {

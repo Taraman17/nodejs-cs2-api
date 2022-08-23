@@ -586,6 +586,8 @@ router.get('/control/changemap', (req, res) => {
 router.get('/control/reloadMaplist', (req, res) => {
     sf.reloadMaplist().then((answer) => {
         res.json(answer);
+    }).catch((err) => {
+        res.json(err.message);
     });
 });
 
