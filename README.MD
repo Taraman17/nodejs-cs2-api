@@ -1,5 +1,9 @@
 # CS:GO Server Control with a Nodejs-powered web-API (LINUX only)
 
+## Request for your opinion
+Please let me know, If I should work on the installation process:
+https://github.com/Taraman17/nodejs-csgo-api/discussions/31
+
 ## Disclaimer
 The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
