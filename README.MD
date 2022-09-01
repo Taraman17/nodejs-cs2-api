@@ -1,5 +1,9 @@
 # CS:GO Server Control with a Nodejs-powered web-API (LINUX only)
 
+## Request for your opinion
+Please let me know, If I should work on the installation process:
+[Poll on Installation](https://github.com/Taraman17/nodejs-csgo-api/discussions/31)
+
 ## Disclaimer
 The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
@@ -12,7 +16,7 @@ See below for changes.
 ### Breaking changes:
 - Config logic has been separated from configClass - make sure to backup your config! You can copy the config part from the old file to the new "./config.js"
 - steam account used for updating the server has been deleted from the config - it has to go in your update-Script.
-- login code has been seperated from the api calls. New location is "http://<your-servers-address>:<your-port>/csgoapi/login" ISO "http://<your-servers-address>:<your-port>/csgoapi/v1.0/login"
+- login code has been seperated from the api calls. New location is "http://{your-servers-address}:{your-port}/csgoapi/login" ISO "http://{your-servers-address}:{your-port}/csgoapi/v1.0/login"
 
 ## Prerequisites
 - steam CLI
@@ -43,7 +47,7 @@ mp_logmessages 1
 logaddress_add xxx.xxx.xxx.xxx:9871
 ```
 - Edit the settings in config.js. Most of them are explained in the sourcecode.
-- The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/<steamid>). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['<steamid-1>', '<steamid-2>'].
+- The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}'].
 - Since with credentials the CORS-Header is not allowed to be set to 'Allow-origin: *' the allowed origin(s) have to be set in the configuration at 'corsOrigin'.
 
 ## Starting
