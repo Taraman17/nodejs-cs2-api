@@ -1,5 +1,5 @@
 const https = require('https');
-const rcon = require('rcon-srcds').default;
+const rcon = require('./rcon-srcds/rcon.js').default;
 const logger = require('./logger.js');
 var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
