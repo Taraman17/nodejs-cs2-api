@@ -29,7 +29,7 @@ Download the nodejs-csgo-api-vX.X.zip and unpack.
 **OR**
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save rcon-srcds srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
+npm install --save srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
 ```
 If you want to use http authentication, add
 ```console
