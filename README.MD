@@ -7,6 +7,7 @@ I strongly adivise to use secure connections to prevent possible man-in-the-midd
 
 ## CS2 Beta Info
 This is the intial beta release for CS2. It has the following changes to previous functionality
+- Changed Log-reception to http logs, since UDP is not supported anymore in new server. Unnecessary library source-log-receiver removed.
 - Maplist loading is still bugged in CS2 Server - therefore working with a static Maplist. Also this has to be loaded with the "relaodMaplist" endpoint.
 - Still working with the old CS_GO map-pictures, since the new ones are not yet available in the workshop
 - Went back to the original rcon-srcds library instead of my patched one, since the new server seems to behave more standard-like.
