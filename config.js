@@ -26,6 +26,8 @@
     "webSockets": false,
     // Port, the websocket is listening on.
     "socketPort": 8091,
+    // Port the Logreceiver listens on.
+    'logPort': 8092,
     // https settings
     "useHttps": false,
     // Optional: If you use https, add the path to the certificate files here.

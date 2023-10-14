@@ -6,8 +6,8 @@ class config {
         this._userOptions = require('../config.js');
 
         this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
-        this.csgoCommand = `${this._userOptions.csgoDir}/srcds_run`;
-        this.csgoArgs = `-game csgo -console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
+        this.csgoCommand = `${this._userOptions.csgoDir}/cs2 -dedicated`;
+        this.csgoArgs = `-console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
     }
 
     get rconPass() {
@@ -46,6 +46,9 @@ class config {
     }
     get socketPort() {
         return this._userOptions.socketPort;
+    }
+    get logPort() {
+        return this._userOptions.logPort;
     }
 
     get serverCommandline() {

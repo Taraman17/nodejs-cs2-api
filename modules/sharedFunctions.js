@@ -1,5 +1,5 @@
 const https = require('https');
-const rcon = require('./rcon-srcds/rcon.js').default;
+const rcon = require('rcon-srcds').default;
 const logger = require('./logger.js');
 var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
@@ -111,12 +111,17 @@ function reloadMaplist() {
             });
         }
 
-        executeRcon('maps *').then((answer) => {
+        // Temporarily work with a static maplist.
+        //executeRcon('maps *').then((answer) => {
+        executeRcon('mp_roundtime').then((answer) => {
             const officialMaps = require('../OfficialMaps.json');
             let re = /\(fs\) (\S+).bsp/g;
             let maplist = [];
             let mapdetails = [];
-            let mapsArray = getMatches(answer, re, 1);
+            // let mapsArray = getMatches(answer, re, 1);
+            let mapsArray = ['cs_italy', 'cs_office', 'de_ancient', 'de_anubis',
+                             'de_dust2', 'de_inferno', 'de_mirage', 'de_nuke',
+                             'de_overpass', 'de_vertigo']
             let promises = [];
             mapsArray.forEach((mapString) => {
                 let mapName = cutMapName(mapString);
@@ -142,6 +147,7 @@ function reloadMaplist() {
                 mapdetails.sort((a, b) => a.name.localeCompare(b.name));
                 maplist.sort();
                 // Only return, if list has at least one item.
+                logger.debug(`Maps found: ${maplist.length}`);
                 if (maplist.length > 0) {
                     logger.debug('Saving Maplist to ServerInfo');
                     serverInfo.mapsAvail = maplist;
@@ -152,6 +158,7 @@ function reloadMaplist() {
                 }
             });
         }).catch((err) => {
+            logger.warn(`Error executing maps rcon: ${err.message}`);
             reject({ "success": false });
         });
     });
@@ -166,6 +173,7 @@ function executeRcon(message) {
     logger.debug(`Executing rcon: ${message}`);
     return new Promise((resolve, reject) => {
         serverInfo.serverState.serverRcon.execute(message).then((answer) => {
+            logger.debug(`got answer: ${answer}`);
             resolve(answer);
         }).catch((err) => {
             logger.error(`RCON Error: ${err.message}`);
@@ -209,4 +217,19 @@ function cutMapName(mapstring) {
     return mapstring;
 }
 
-module.exports = { authenticate, reloadMaplist, executeRcon, cutMapName };
+/**
+ * Query the server for mp_maxrounds.and store them in serverInfo
+ */
+function queryMaxRounds() {
+    executeRcon('mp_maxrounds').then((answer) => {
+        // "mp_maxrounds" = "30" ( def. "0" ) min. 0.000000 game notify replicated
+        // - max number of rounds to play before server changes maps
+        let rex = /mp_maxrounds = (\d+)/g;
+        let matches = rex.exec(answer);
+        serverInfo.maxRounds = matches[1];
+    }).catch((err) => {
+        logger.error('Error getting Maxrounds: ' + err);
+    });
+}
+
+module.exports = { authenticate, reloadMaplist, executeRcon, cutMapName, queryMaxRounds };
