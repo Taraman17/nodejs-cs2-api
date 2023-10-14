@@ -1,27 +1,21 @@
-# CS:GO Server Control with a Nodejs-powered web-API (LINUX only)
-
-## Request for your opinion
-Please let me know, If I should work on the installation process:
-[Poll on Installation](https://github.com/Taraman17/nodejs-csgo-api/discussions/31)
+# CS2 Server Control with a Nodejs-powered web-API (LINUX only)
 
 ## Disclaimer
 The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
-## NOTE:
-Release 1.0 changed structure of the code to enable further development.
-See below for changes.
-
-### Breaking changes:
-- Config logic has been separated from configClass - make sure to backup your config! You can copy the config part from the old file to the new "./config.js"
-- steam account used for updating the server has been deleted from the config - it has to go in your update-Script.
-- login code has been seperated from the api calls. New location is "http://{your-servers-address}:{your-port}/csgoapi/login" ISO "http://{your-servers-address}:{your-port}/csgoapi/v1.0/login"
+## CS2 Beta Info
+This is the intial beta release for CS2. It has the following changes to previous functionality
+- Maplist loading is still bugged in CS2 Server - therefore working with a static Maplist. Also this has to be loaded with the "relaodMaplist" endpoint.
+- Still working with the old CS_GO map-pictures, since the new ones are not yet available in the workshop
+- Went back to the original rcon-srcds library instead of my patched one, since the new server seems to behave more standard-like.
+- API calls are unchanged.
 
 ## Prerequisites
 - steam CLI
-- CS:GO dedicated server
-- NodeJS 13.X or higher
+- CS2 dedicated server
+- NodeJS 14.X or higher
 
 ## Install
 Download the nodejs-csgo-api-vX.X.zip and unpack.
@@ -29,22 +23,18 @@ Download the nodejs-csgo-api-vX.X.zip and unpack.
 **OR**
 download the script files to and install the dependencies for nodejs
 ```console
-npm install --save srcds-log-receiver local-ip express express-session express-rate-limit cors passport passport-steam node-pty ws winston winston-daily-rotate-file
-```
-If you want to use http authentication, add
-```console
-npm install --save passport-http
+npm install
 ```
 
 ## Configuration
-The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 9871
+The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 8092 (or the one you specified in config.js)
 ```
 log on
 sv_logecho 1
 mp_logfile 1
 mp_logdetail 3
 mp_logmessages 1
-logaddress_add xxx.xxx.xxx.xxx:9871
+logaddress_add_http "http://xxx.xxx.xxx.xxx:8092"
 ```
 - Edit the settings in config.js. Most of them are explained in the sourcecode.
 - The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}'].
