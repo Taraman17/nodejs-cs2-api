@@ -2,7 +2,6 @@
  * @file CS:GO Dedicated Server Control
  * @author Markus Adrario <mozilla@adrario.de>
  * @version 1.0
- * @requires srcds-log-receiver
  * @requires express
  * @requires express-session
  * @requires express-rate-limit
@@ -15,13 +14,13 @@
  * @requires url
  * @requires events
  * @requires child_process
+ * @requires rcon-srcds
  * @requires ./modules/logger.js
  * @requires ./modules/serverInfo.js
  * @requires ./modules/configClass.js
  * @requires ./modules/sharedFunctions.js
  */
 
-const logReceiver = require('srcds-log-receiver');
 const express = require('express');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
@@ -57,12 +56,12 @@ if (cfg.useHttps) {
 }
 
 // check for running Server on Startup
-exec('/bin/ps -a', (error, stdout, stderr) => {
+exec('/bin/ps -A', (error, stdout, stderr) => {
     if (error) {
         logger.error(`exec error: ${error}`);
         return;
     }
-    if (stdout.match(/srcds_linux/) != null) {
+    if (stdout.match(/cs2/) != null) {
         serverInfo.serverState.serverRunning = true;
         logger.verbose('Found running server');
         sf.authenticate().then((data) => {
@@ -87,7 +86,7 @@ controlEmitter.on('exec', (operation, action) => {
         serverInfo.serverState.authenticated = true;
         logger.debug('serverInfo.serverState.authenticated = ' + serverInfo.serverState.authenticated);
         logger.verbose("RCON Authenticate success");
-        queryMaxRounds();
+        sf.queryMaxRounds();
         // Get current and available maps and store them.
         sf.executeRcon('host_map').then((answer) => {
             let re = /map" = "(\S+)"/;
@@ -297,6 +296,25 @@ if (cfg.useHttps) {
 }
 server.listen(cfg.apiPort);
 
+//------------------------------- Log receiver ----------------------------//
+logreceive = express();
+logreceive.use(express.text({ limit: "50mb" }));
+
+if (cfg.useHttps) {
+    loghttp = require('http');
+    logserver = loghttp.createServer(logreceive);
+} else {
+    logserver = http.createServer(logreceive);
+}
+
+logroute = require('./modules/logreceive.js');
+logreceive.use('/', logroute);
+
+logserver.listen(cfg.logPort, () => {
+    logger.info('Logserver listening!');
+});
+//----------------------------- END Log receiver --------------------------//
+
 /*----------------- WebSockets Code -------------------*/
 if (cfg.webSockets) {
     const wssServer = http.createServer(httpsCredentials);
@@ -386,139 +404,5 @@ if (cfg.webSockets) {
         } else {
             const ws = new webSocket(`ws://${host}:${wssServer.address().port}`);
         }
-    });
-}
-
-/*----------------- log receiving code --------------------*/
-// Since we only control locally installed servers and server logging is not working on
-// 'localhost', we use the ip-address of the interface configured.
-logger.verbose("local IP is: " + localIP);
-var logOptions = {
-    address: localIP
-};
-
-/**
- * Receives logs from the Gameserver
- * @emits receiver#data
- */
-var receiver = new logReceiver.LogReceiver(logOptions);
-/**
- * Listens for logs sent by the CS:GO-Server
- * @listens receiver#data
- * @emits controlEmitter#exec
- */
-receiver.on('data', (data) => {
-    if (data.isValid) {
-        // Start authentication, when not authenticated.
-        if ((data.message.indexOf('Log file started') != -1) && !serverInfo.serverState.authenticated) {
-            // Start of logfile
-            // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
-            logger.verbose('start authenticating RCON');
-            // Since authentication is a vital step for the API to work, we start it automatically
-            // once the server runs.
-            sf.authenticate().then((data) => {
-                logger.verbose(`authentication ${data.authenticated}`);
-            }).catch((data) => {
-                logger.verbose(`authentication ${data.authenticated}`);
-            });
-            if (cfg.script('logStart') != '') {
-                exec(cfg.script('logStart'));
-            }
-        } else if (data.message.indexOf('Started map') != -1) {
-            // Start of map.
-            // 'L 12/29/2005 - 13:33:49: Started map "cs_italy" (CRC "1940414799")
-            let rex = /Started map \"(\S+)\"/g;
-            let matches = rex.exec(data.message);
-            let mapstring = matches[1];
-            mapstring = sf.cutMapName(mapstring);
-            serverInfo.map = mapstring;
-            // since 'started map' is also reported on server-start, only emit on mapchange.
-            if (serverInfo.serverState.operationPending == 'mapchange') {
-                controlEmitter.emit('exec', 'mapchange', 'end');
-            }
-            logger.verbose(`Started map: ${mapstring}`);
-            serverInfo.clearPlayers();
-            serverInfo.newMatch();
-            if (cfg.script('mapStart') != '') {
-                exec(cfg.script('mapStart'));
-            }
-        } else if (data.message.indexOf('World triggered "Match_Start" on') != -1) {
-            // Start of a new match.
-            // L 08/13/2020 - 21:49:26: World triggered "Match_Start" on "de_nuke"
-            logger.verbose('Detected match start.');
-            queryMaxRounds();
-            serverInfo.newMatch();
-            if (cfg.script('matchStart') != '') {
-                exec(cfg.script('matchStart'));
-            }
-        } else if (data.message.indexOf('World triggered "Round_Start"') != -1) {
-            // Start of round.
-            // L 08/13/2020 - 21:49:28: World triggered "Round_Start"
-            if (cfg.script('roundStart') != '') {
-                exec(cfg.script('roundStart'));
-            }
-        } else if (/Team \"\S+\" scored/.test(data.message)) {
-            // Team scores at end of round.
-            // L 02/10/2019 - 21:31:15: Team "CT" scored "1" with "2" players
-            // L 02/10/2019 - 21:31:15: Team "TERRORIST" scored "1" with "2" players
-            rex = /Team \"(\S)\S+\" scored \"(\d+)\"/g;
-            let matches = rex.exec(data.message);
-            serverInfo.score = matches;
-        } else if (data.message.indexOf('World triggered "Round_End"') != -1) {
-            // End of round.
-            // L 08/13/2020 - 22:24:22: World triggered "Round_End"
-            if (cfg.script('roundEnd') != '') {
-                exec(cfg.script('roundEnd'));
-            }
-        } else if (data.message.indexOf("Game Over:") != -1) {
-            // End of match.
-            // L 08/13/2020 - 22:24:22: Game Over: competitive 131399785 de_nuke score 16:9 after 35 min
-            if (cfg.script('matchEnd') != '') {
-                exec(cfg.script('matchEnd'));
-            }
-        } else if (/".+<\d+><STEAM_\d:\d:\d+>/.test(data.message)) {
-            // Player join or teamchange.
-            // L 05/11/2020 - 22:19:11: "Dummy<10><STEAM_0:0:0000000><>" entered the game
-            // L 05/11/2020 - 22:19:13: "Dummy<11><STEAM_0:0:0000000>" switched from team <Unassigned> to <CT>
-            // L 06/03/2020 - 14:37:36: "Dummy<3><STEAM_0:0:0000000>" switched from team <TERRORIST> to <Spectator>
-            // L 05/11/2020 - 22:50:47: "Dummy<11><STEAM_0:0:0000000><Unassigned>" disconnected (reason "Disconnect")
-            let rex = /"(.+)<\d+><(STEAM_\d+:\d+:\d+)>/g;
-            let matches = rex.exec(data.message);
-            if (data.message.indexOf('entered the game') != -1) {
-                serverInfo.addPlayer({ 'name': matches[1], 'steamID': matches[2] });
-            } else if (data.message.search(/disconnected \(reason/) != -1) {
-                serverInfo.removePlayer(matches[2]);
-            } else if (data.message.indexOf('switched from team') != -1) {
-                rex = /<(STEAM_\d+:\d+:\d+)>.*switched from team <\S+> to <(\S+)>/g;
-                matches = rex.exec(data.message);
-                serverInfo.assignPlayer(matches[1], matches[2]);
-            }
-        } else if (data.message.indexOf('Log file closed') != -1) {
-            // end of current log file. (Usually on mapchange or server quit.)
-            // L 08/13/2020 - 22:25:00: Log file closed
-            logger.verbose('logfile closed!');
-            if (cfg.script('logEnd') != '') {
-                exec(cfg.script('logEnd'));
-            }
-        }
-    }
-});
-receiver.on('invalid', (invalidMessage) => {
-    logger.verbose('Got some completely unparseable gargbase: ' + invalidMessage);
-});
-
-/*------------------------- Helper Functions ----------------------------*/
-/**
- * Query the server for mp_maxrounds.and store them in serverInfo
- */
-function queryMaxRounds() {
-    sf.executeRcon('mp_maxrounds').then((answer) => {
-        // "mp_maxrounds" = "30" ( def. "0" ) min. 0.000000 game notify replicated
-        // - max number of rounds to play before server changes maps
-        let rex = /\"mp_maxrounds\" = \"(\d+)\"/g;
-        let matches = rex.exec(answer);
-        serverInfo.maxRounds = matches[1];
-    }).catch((err) => {
-        logger.error('Error getting Maxrounds: ' + err);
     });
 }

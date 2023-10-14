@@ -384,11 +384,11 @@ router.get('/control/stop', (req, res) => {
 *     { "error": "Could not find csgo server process" }
 */
 router.get('/control/kill', (req, res) => {
-    exec('/bin/ps -a |grep srcds_linux', (error, stdout, stderr) => {
+    exec('/bin/ps -A |grep cs2', (error, stdout, stderr) => {
         if (error) {
             logger.error(`exec error: ${error}`);
             res.status(501).json({ "error": "Could not find csgo server process" });
-        } else if (stdout.match(/srcds_linux/) != null) {
+        } else if (stdout.match(/cs2/) != null) {
             let pid = stdout.split(/\s+/)[1];
             exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
                 if (error) {
