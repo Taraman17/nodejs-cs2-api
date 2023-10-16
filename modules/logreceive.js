@@ -85,10 +85,11 @@ router.post('/log', (req, res) => {
                 }
             } else if (/\".+<\d+><\[U:\d:\d+\]>/.test(line)) {
                 // Player join or teamchange.
-                // L 10/12/2023 - 16:06:38: "[Klosser] Taraman<2><[U:1:12610374]><>" entered the game
-                // L 10/12/2023 - 18:57:47: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <Unassigned> to <CT>
-                // L 10/12/2023 - 18:59:25: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <TERRORIST> to <Spectator>
-                let rex = /\"(.+)<\d+><\[(U:\d+:\d+)\]><>\"/g;
+                // 10/12/2023 - 16:06:38: "[Klosser] Taraman<2><[U:1:12610374]><>" entered the game
+                // 10/12/2023 - 18:57:47: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <Unassigned> to <CT>
+                // 10/12/2023 - 18:59:25: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <TERRORIST> to <Spectator>
+                // 10/16/2023 - 16:31:59.699 - "[Klosser] Taraman<2><[U:1:12610374]><CT>" disconnected (reason "NETWORK_DISCONNECT_DISCONNECT_BY_USER")
+                let rex = /\"(.+)<\d+><\[(U:\d+:\d+)\]></g;
                 let matches = rex.exec(line);
                 if (line.indexOf('entered the game') != -1) {
                     serverInfo.addPlayer({ 'name': matches[1], 'steamID': matches[2] });
