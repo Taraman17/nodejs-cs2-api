@@ -1,9 +1,12 @@
 const https = require('https');
-const rcon = require('rcon-srcds').default;
+const queue = require('queue');
+const rcon = require('./rcon-srcds/rcon.js').default;
 const logger = require('./logger.js');
 var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
 var controlEmitter = require('./controlEmitter.js');
+
+rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
 
 /**
  * Authenticate rcon with server
@@ -112,8 +115,7 @@ function reloadMaplist() {
         }
 
         // Temporarily work with a static maplist.
-        //executeRcon('maps *').then((answer) => {
-        executeRcon('mp_roundtime').then((answer) => {
+        executeRcon('maps *').then((answer) => {
             const officialMaps = require('../OfficialMaps.json');
             let re = /\(fs\) (\S+).bsp/g;
             let maplist = [];
@@ -172,12 +174,15 @@ function reloadMaplist() {
 function executeRcon(message) {
     logger.debug(`Executing rcon: ${message}`);
     return new Promise((resolve, reject) => {
-        serverInfo.serverState.serverRcon.execute(message).then((answer) => {
-            logger.debug(`got answer: ${answer}`);
-            resolve(answer);
-        }).catch((err) => {
-            logger.error(`RCON Error: ${err.message}`);
-            reject(err.message);
+        // To ensure proper reception of answers, we need to send requests one after another.
+        rconQ.push( () => {
+            serverInfo.serverState.serverRcon.execute(message).then((answer) => {
+                logger.debug(answer);
+                resolve(answer);
+            }).catch((err) => {
+                logger.error(`RCON Error: ${err.message}`);
+                reject(err.message);
+            });
         });
     });
 }

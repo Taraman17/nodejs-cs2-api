@@ -38,7 +38,7 @@ var serverInfo = require('./modules/serverInfo.js');
 var cfg = require('./modules/configClass.js');
 const sf = require('./modules/sharedFunctions.js');
 
-var localIP = require('local-ip')(cfg.iface);
+cfg.localIp = require('local-ip')(cfg.iface);
 var http = undefined;
 var httpsCredentials = {};
 // if configured for https, we fork here.
@@ -66,6 +66,7 @@ exec('/bin/ps -A', (error, stdout, stderr) => {
         logger.verbose('Found running server');
         sf.authenticate().then((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
+            sf.executeRcon(`logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`)
         }).catch((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
         });
@@ -86,10 +87,9 @@ controlEmitter.on('exec', (operation, action) => {
         serverInfo.serverState.authenticated = true;
         logger.debug('serverInfo.serverState.authenticated = ' + serverInfo.serverState.authenticated);
         logger.verbose("RCON Authenticate success");
-        sf.queryMaxRounds();
         // Get current and available maps and store them.
-        sf.executeRcon('host_map').then((answer) => {
-            let re = /map" = "(\S+)"/;
+        sf.executeRcon('status').then((answer) => {
+            let re = /\[1: (\w+) \|/;
             let matches = re.exec(answer);
             let mapstring = matches[1];
             serverInfo.map = sf.cutMapName(mapstring);
@@ -99,6 +99,7 @@ controlEmitter.on('exec', (operation, action) => {
         }).catch((err) => {
             logger.warn("Maps could not be loaded");
         });
+        sf.queryMaxRounds();
     }
 });
 
@@ -125,11 +126,12 @@ app.use(session({
     saveUninitialized: true
 }));
 app.use(cors({
-    origin: cfg.corsOrigin,
+    origin: cfg.host,
     credentials: true
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(express.static('public'));
 
 app.disable('x-powered-by');
 
@@ -149,7 +151,7 @@ passport.use(
             profile: false
         },
         (identifier, profile, done) => {
-            process.nextTick(function() {
+            process.nextTick( () => {
 
                 // Cut the SteamID64 from the returned User-URI
                 let steamID64 = identifier.split('/')[5];
@@ -196,10 +198,11 @@ function ensureAuthenticated(req, res, next) {
  * @apiError (302) Redirect to /csgoapi/loginStatus
  */
 app.get('/csgoapi/login',
-    passport.authenticate('steam', { failureRedirect: '/csgoapi/loginStatus' }),
-    (req, res) => {
-        res.redirect(cfg.redirectPage);
-    }
+    passport.authenticate('steam'),
+        (req, res) => {
+            // The request will be redirected to Steam for authentication, so
+            // this function will not be called.
+        }
 );
 /**
  * @api {get} /csgoapi/login/return
@@ -390,15 +393,9 @@ if (cfg.webSockets) {
     });
 
     wssServer.listen(cfg.socketPort, () => {
-        let host = '';
-        if (cfg.host != '') {
-            host = cfg.host;
-            logger.verbose(cfg.host);
-        } else {
-            host = localIP;
-            logger.verbose(localIP);
-        }
-
+        let host = cfg.host;
+        logger.verbose(host);
+        
         if (cfg.useHttps) {
             const ws = new webSocket(`wss://${host}:${wssServer.address().port}`);
         } else {
