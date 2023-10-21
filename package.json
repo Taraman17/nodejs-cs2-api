@@ -9,14 +9,14 @@
         "passport": ">=0.6.0",
         "passport-http": ">=0.3.0",
         "passport-steam": ">=1.0.15",
-        "rcon-srcds": "^2.0.2",
+        "queue": "6.0",
         "winston": ">=3.3.3",
         "winston-daily-rotate-file": ">=4.5.5",
         "ws": ">=8.0.0"
     },
-    "name": "nodejs-csgo-api",
+    "name": "nodejs-cs2-api",
     "description": "## Disclaimer The use of this software is at your own risk. It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server. I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.",
-    "version": "1.2.1",
+    "version": "2.0.0",
     "main": "serverControl.js",
     "directories": {
         "example": "example"
@@ -26,17 +26,18 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/taraman17/nodejs-csgo-api.git"
+        "url": "git+https://github.com/taraman17/nodejs-cs2-api.git"
     },
     "keywords": [
-        "csgo",
-        "csgo_ds",
+        "cs2",
+        "Counter-Strike 2",
+        "cs2_ds",
         "api"
     ],
     "author": "Taraman17",
     "license": "GPL-3.0-or-later",
     "bugs": {
-        "url": "https://github.com/taraman17/nodejs-csgo-api/issues"
+        "url": "https://github.com/taraman17/nodejs-cs2-api/issues"
     },
-    "homepage": "https://github.com/taraman17/nodejs-csgo-api#readme"
+    "homepage": "https://github.com/taraman17/nodejs-cs2-api#readme"
 }
