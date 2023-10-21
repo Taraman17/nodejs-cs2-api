@@ -5,9 +5,13 @@ class config {
     constructor() {
         this._userOptions = require('../config.js');
 
-        this.screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
-        this.csgoCommand = `${this._userOptions.csgoDir}/cs2 -dedicated`;
-        this.csgoArgs = `-console -usercon +sv_setsteamaccount ${this._userOptions.serverToken} ${this._userOptions.csgoOptionalArgs}`;
+        this._screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
+        this._csgoCommand = `${this._userOptions.csgoDir}game/bin/linuxsteamrt64/cs2 -dedicated`;
+        this._serverTokenCommand = `+sv_setsteamaccount ${this._userOptions.serverToken}`;
+        this._localIp = '';
+    }
+    get _csgoArgs() {
+        return `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this._localIp}:${this.logPort}/log" ${this._userOptions.csgoOptionalArgs}`;
     }
 
     get rconPass() {
@@ -19,7 +23,11 @@ class config {
     }
 
     get redirectPage() {
-        return this._userOptions.redirectPage;
+        if (this._userOptions.redirectPage) {
+            return this._userOptions.redirectPage;
+        } else {
+            return ('/gameserver.htm');
+        }
     }
 
     get loginValidity() {
@@ -37,8 +45,18 @@ class config {
         return this._userOptions.iface;
     }
 
+    get localIp() {
+        return this._localIp;
+    }
+    set localIp(ip) {
+        this._localIp = ip;
+    }
     get host() {
-        return this._userOptions.host;
+        if (this._userOptions.host != '') {
+            return this._userOptions.host;
+        } else {
+            return this._localIp
+        }
     }
 
     get apiPort() {
@@ -52,13 +70,21 @@ class config {
     }
 
     get serverCommandline() {
-        return `${this.screenCommand} ${this.csgoCommand} ${this.csgoArgs}`;
+        let command = `${this._screenCommand} ${this._csgoCommand} ${this._csgoArgs}`;
+        if (this._csgoToken != '') {
+            command = `${command} ${this._serverTokenCommand}`;
+        }
+        return command;
     }
-    get updateCommand() {
+    get steamCommand() {
         return this._userOptions.steamExe
     }
     get updateScript() {
-        return this._userOptions.updateScript;
+        if (this._userOptions.updateScript != ''){
+            return this._userOptions.updateScript;
+        } else {
+            return `${this._userOptions.csgoDir}update_cs2.txt`;
+        }
     }
 
     get webSockets() {

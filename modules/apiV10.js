@@ -292,6 +292,7 @@ router.get('/control/start', (req, res) => {
             startMap = args.startmap;
         }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
+        logger.info(commandLine);
         let serverProcess = exec(commandLine, (error, stdout, stderr) => {
             if (error) {
                 // node couldn't execute the command.
@@ -327,13 +328,106 @@ router.get('/control/start', (req, res) => {
 });
 
 /**
+* @apiDescription Pause round
+*
+* @api {get} /control/pause
+* @apiVersion 1.0
+* @apiName Pause
+* @apiGroup Control
+*
+* @apiSuccess {boolean} success
+* @apiSuccessExample {json}
+*     HTTP/1.1 200 OK
+*     { "success": true }
+* @apiError {string} error
+* @apiErrorExample {json}
+*     HTTP/1.1 503 Service Unavailable
+*     { "error": "Pause not possible" }
+*/
+router.get('/control/pause', (req,res) => {
+    if (serverInfo.serverState.serverRunning && serverInfo.serverState.operationPending == 'none') {
+        controlEmitter.emit('exec', 'pause', 'start');
+        logger.verbose("Pausing round.");
+        sf.executeRcon('mp_pause_match').then((answer) => {
+            // L 10/16/2023 - 16:05:44: Match pause is enabled - mp_pause_match
+            logger.debug(answer);
+            if (answer.indexOf('Match pause is enabled - mp_pause_match') != -1) {
+                serverInfo.pause = true;
+                controlEmitter.emit('exec', 'pause', 'end');
+                res.json({ "success": true });
+            } else {
+                logger.info(`Pausing failed: ${answer}`);
+                controlEmitter.emit('exec', 'pause', 'end');
+                res.json({ "success": false });
+            }
+        }).catch((err) => {
+            logger.info(`Pausing failed. Rcon error: ${err.message}`);
+            controlEmitter.emit('exec', 'pause', 'end');
+            res.status(503).json({ "error": `rcon error` });
+        });
+    } else if (!serverInfo.serverState.serverRunning) {
+        logger.warn('Pause triggered, although server not running');
+        res.status(503).json({ "error": "Server not running." });
+    } else if (serverInfo.serverState.operationPending != 'none') {
+        logger.warn(`Pause triggered, while ${serverInfo.serverState.operationPending} pending.`);
+        res.status(503).json({ "error": `Another Operation is Pending: ${serverInfo.serverState.operationPending}` });
+    }
+});
+
+/**
+* @apiDescription Resume round
+*
+* @api {get} /control/unpause
+* @apiVersion 1.0
+* @apiName Unpause
+* @apiGroup Control
+*
+* @apiSuccess {boolean} success
+* @apiSuccessExample {json}
+*     HTTP/1.1 200 OK
+*     { "success": true }
+* @apiError {string} error
+* @apiErrorExample {json}
+*     HTTP/1.1 503 Service Unavailable
+*     { "error": "Unpause not possible" }
+*/
+router.get('/control/unpause', (req,res) => {
+    if (serverInfo.serverState.serverRunning && serverInfo.serverState.operationPending == 'none') {
+        controlEmitter.emit('exec', 'pause', 'start');
+        logger.verbose("Resuming round.");
+        sf.executeRcon('mp_unpause_match').then((answer) => {
+            // L 10/16/2023 - 16:06:08: Match pause is disabled - mp_unpause_match
+            if (answer.indexOf('Match pause is disabled - mp_unpause_match') != -1) {
+                serverInfo.pause = false;
+                controlEmitter.emit('exec', 'pause', 'end');
+                res.json({ "success": true });
+            } else {
+                logger.info(`Unpausing failed: ${answer}`);
+                controlEmitter.emit('exec', 'pause', 'end');
+                res.json({ "success": false });
+            }
+        }).catch((err) => {
+            logger.info(`Unpausing failed. Rcon error: ${err}`);
+            controlEmitter.emit('exec', 'pause', 'end');
+            res.status(503).json({ "error": `RCON Error: ${err.toString()}` });
+        });
+    } else if (!serverInfo.serverState.serverRunning) {
+        logger.warn('Unpause triggered, although server not running');
+        res.status(503).json({ "error": "Server not running." });
+    } else if (serverInfo.serverState.operationPending != 'none') {
+        logger.warn(`Unpause triggered, while ${serverInfo.serverState.operationPending} pending.`);
+        res.status(503).json({ "error": `Another Operation is Pending: ${serverInfo.serverState.operationPending}` });
+    }
+});
+
+/**
 * @apiDescription Stop CS:GO Server
 *
 * @api {get} /control/stop
 * @apiVersion 1.0
 * @apiName Stop
 * @apiGroup Control
-
+*
 * @apiSuccess {boolean} success
 * @apiSuccessExample {json}
 *     HTTP/1.1 200 OK
@@ -348,8 +442,11 @@ router.get('/control/stop', (req, res) => {
         controlEmitter.emit('exec', 'stop', 'start');
         logger.verbose("sending quit.");
         sf.executeRcon('quit').then((answer) => {
+            // CHostStateMgr::QueueNewRequest( Quitting, 8 )
+            // TODO: find out if command quit can fail.
             serverInfo.serverState.serverRunning = false;
             serverInfo.serverState.authenticated = false;
+            serverInfo.reset();
             res.json({ "success": true });
             controlEmitter.emit('exec', 'stop', 'end');
         }).catch((err) => {
@@ -373,7 +470,7 @@ router.get('/control/stop', (req, res) => {
 * @apiVersion 1.0
 * @apiName Kill
 * @apiGroup Control
-
+*
 * @apiSuccess {boolean} success
 * @apiSuccessExample {json}
 *     HTTP/1.1 200 OK
@@ -413,7 +510,7 @@ router.get('/control/kill', (req, res) => {
 * @apiVersion 1.0
 * @apiName Update
 * @apiGroup Control
-
+*
 * @apiSuccess {boolean} success
 * @apiSuccessExample {json}
 *     HTTP/1.1 200 OK
@@ -428,7 +525,7 @@ router.get('/control/update', (req, res) => {
         controlEmitter.emit('exec', 'update', 'start');
         let updateSuccess = false;
         logger.verbose('Updating Server.');
-        let updateProcess = pty.spawn(cfg.updateCommand, [`+runscript ${cfg.updateScript}`]);
+        let updateProcess = pty.spawn(cfg.steamCommand, [`+runscript ${cfg.updateScript}`]);
 
         updateProcess.on('data', (data) => {
             logger.debug(data);
@@ -524,37 +621,50 @@ router.get('/control/changemap', (req, res) => {
         // only try to change map, if it exists on the server.
         if (serverInfo.mapsAvail.includes(args.map)) {
             sf.executeRcon(`map ${args.map}`).then((answer) => {
-                if (!cfg.webSockets) {
-                    // If the mapchange completed, send success and cancel timeout.
-                    let sendCompleted = (operation, action) => {
-                        if (operation == 'mapchange' && action == 'end') {
-                            res.json({ "success": true });
-                            clearTimeout(mapchangeTimeout);
-                        }
-                    };
-                    controlEmitter.once('exec', sendCompleted);
-
-                    // Failure of a mapchange is unfortunately not logged by the server,
-                    // so we use a timeout after 30 sec.
-                    let mapchangeTimeout = setTimeout(() => {
-                        res.status(501).json({ "error": "Mapchange failed - timeout" });
-                        controlEmitter.emit('exec', 'mapchange', 'fail');
-                    }, 30000);
+                // Answer on sucess:
+                // Changelevel to de_nuke
+                // changelevel "de_nuke"
+                // CHostStateMgr::QueueNewRequest( Changelevel (de_nuke), 5 ) 
+                //
+                // Answer on failure:
+                // changelevel de_italy:  invalid map name
+                if (answer.indexOf(`CHostStateMgr::QueueNewRequest( Changelevel (${args.map})`) == -1) {
+                    // If the mapchange command fails, return failure immediately
+                    res.status(501).json({ "error": `Mapchange failed: ${answer}` });
+                    controlEmitter.emit('exec', 'mapchange', 'fail');
                 } else {
-                    res.json({ "success": true });
-                    // If the mapchange is successful, cancel the timeout.
-                    let removeTimeout = (operation, action) => {
-                        if (operation == 'mapchange' && action == 'end') {
-                            clearTimeout(mapchangeTimeout);
-                        }
-                    };
-                    controlEmitter.once('exec', removeTimeout);
+                    if (!cfg.webSockets) {
+                        // If the mapchange completed, send success and cancel timeout.
+                        let sendCompleted = (operation, action) => {
+                            if (operation == 'mapchange' && action == 'end') {
+                                res.json({ "success": true });
+                                clearTimeout(mapchangeTimeout);
+                            }
+                        };
+                        controlEmitter.once('exec', sendCompleted);
 
-                    // Failure of a mapchange is unfortunately not logged by the server,
-                    // so we use a timeout after 30 sec.
-                    let mapchangeTimeout = setTimeout(() => {
-                        controlEmitter.emit('exec', 'mapchange', 'fail');
-                    }, 30000);
+                        // Failure of a mapchange is unfortunately not logged by the server,
+                        // so we use a timeout after 30 sec.
+                        let mapchangeTimeout = setTimeout(() => {
+                            res.status(501).json({ "error": "Mapchange failed - timeout" });
+                            controlEmitter.emit('exec', 'mapchange', 'fail');
+                        }, 30000);
+                    } else {
+                        res.json({ "success": true });
+                        // If the mapchange is successful, cancel the timeout.
+                        let removeTimeout = (operation, action) => {
+                            if (operation == 'mapchange' && action == 'end') {
+                                clearTimeout(mapchangeTimeout);
+                            }
+                        };
+                        controlEmitter.once('exec', removeTimeout);
+
+                        // Failure of a mapchange is unfortunately not logged by the server,
+                        // so we use a timeout after 30 sec.
+                        let mapchangeTimeout = setTimeout(() => {
+                            controlEmitter.emit('exec', 'mapchange', 'fail');
+                        }, 30000);
+                    }
                 }
             }).catch((err) => {
                 res.status(501).json({ "error": `RCON error: ${err.toString()}` });
@@ -577,7 +687,7 @@ router.get('/control/changemap', (req, res) => {
 * @apiVersion 1.0
 * @apiName reloadMaplist
 * @apiGroup Control
-
+*
 * @apiSuccess {boolean} success
 * @apiSuccessExample {json}
 *     HTTP/1.1 200 OK

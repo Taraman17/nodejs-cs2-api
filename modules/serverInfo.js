@@ -5,7 +5,7 @@ class serverInfo {
         /**
          * Stores the state of the controlled server-instance.
          * @typedef  serverState
-         * @property {string}  operationPending -  1 of: none, start, stop, mapchange, update, auth.
+         * @property {string}   operationPending - 1 of: none, start, stop, mapchange, update, auth, pause.
          * @property {boolean}  serverRunning    - Is the server process running.
          * @property {object}   serverRcon       - rcon-srcds instance for the server.
          * @property {boolean}  authenticated    - Is the rcon instance authenticated with the server.
@@ -33,6 +33,7 @@ class serverInfo {
         this._mapFilterType = 'exclude'; // 'include / exclude',
         this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
         this._maxRounds = 0;
+        this._pause = false // Is the match paused?
         this._score = {
             'T': 0,
             'C': 0
@@ -176,6 +177,14 @@ class serverInfo {
         this.serverInfoChanged.emit('change');
     }
 
+    get pause() {
+        return this._pause;    
+    }
+    set pause(state) {
+        this._pause = state
+        this.serverInfoChanged.emit('change');
+    }
+
     get players() {
         return this._players;
     }
@@ -215,6 +224,7 @@ class serverInfo {
             'mapsDetails': this.mapDetails(),
             'maxRounds': this._maxRounds,
             'score': this._score,
+            'pause': this._pause,
             'players': this._players
         };
     }
@@ -223,6 +233,16 @@ class serverInfo {
         this._score.C = 0;
         this._score.T = 0;
         this.serverInfoChanged.emit('change');
+    }
+    reset() {
+        // Method to be called on server quit.
+        this._map = '';
+        this._mapsAvail = [];
+        this._mapsDetails = [];
+        this._maxRounds = 0;
+        this._pause = false;
+        this.clearPlayers();
+        this.newMatch();
     }
 };
 

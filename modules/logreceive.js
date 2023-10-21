@@ -36,6 +36,7 @@ router.post('/log', (req, res) => {
                 let mapstring = matches[1];
                 mapstring = sf.cutMapName(mapstring);
                 serverInfo.map = mapstring;
+                serverInfo.pause = false;
                 // since 'started map' is also reported on server-start, only emit on mapchange.
                 if (serverInfo.serverState.operationPending == 'mapchange') {
                     controlEmitter.emit('exec', 'mapchange', 'end');

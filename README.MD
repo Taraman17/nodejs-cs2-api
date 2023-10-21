@@ -6,46 +6,69 @@ It exposes control of your server and shell functions to the internet. Although 
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
 ## CS2 Beta Info
-This is the intial beta release for CS2. It has the following changes to previous functionality
+### New in Beta.3:
+- Reworked the code, to make the initial configuration much easier.
+- Example Webinterface is now served via the app, so you don't need to configure a seperate webserver.
+- Made using websockets for data-transfer to Webinterface the standard.
+
+### This is a beta release for CS2. It has the following changes to previous functionality
 - Changed Log-reception to http logs, since UDP is not supported anymore in new server. Unnecessary library source-log-receiver removed.
-- Maplist loading is still bugged in CS2 Server - therefore working with a static Maplist. Also this has to be loaded with the "relaodMaplist" endpoint.
+- Maplist loading is still bugged in CS2 Server - therefore working with a static Maplist.
 - Still working with the old CS_GO map-pictures, since the new ones are not yet available in the workshop
-- Went back to the original rcon-srcds library instead of my patched one, since the new server seems to behave more standard-like.
 - API calls are unchanged.
+- added API endpoints for pausing and resuming the match (/control/pause & /control/unpause). Status is tracked in serverInfo.pause (false/true).
 
 ## Prerequisites
 - steam CLI
 - CS2 dedicated server
 - NodeJS 14.X or higher
+- screen
 
 ## Install
 Download the nodejs-csgo-api-vX.X.zip and unpack.
-
 **OR**
 download the script files to and install the dependencies for nodejs
+
+Then in the application folder do
 ```console
 npm install
 ```
 
+If "screen" is not installed:
+```console
+sudo apt install screen
+```
+(For systems using apt as packet manager.)
+
 ## Configuration
-The CS:GO Server must be configured to send logs to the local IP (not 127.0.0.1): on port 8092 (or the one you specified in config.js)
+### API:
+- Edit the settings in config.js - at least the first 5. They are explained in the file.
+- The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}']).
+
+### Server update script
+If you want to use the update function, you need to provide a script to use with the steamcmd.
+Default is /<your_server_root>/update_cs2.txt
+You can change the filename in the config.
+
+### CS2 Dedicated Server
+You need to set the rcon Password in the server config, the rest is configured via command line when sarting via the API.
+following arguments are added to the CL:
+```console
+-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this._localIp}:${this.logPort}/log"
 ```
-log on
-sv_logecho 1
-mp_logfile 1
-mp_logdetail 3
-mp_logmessages 1
-logaddress_add_http "http://xxx.xxx.xxx.xxx:8092"
-```
-- Edit the settings in config.js. Most of them are explained in the sourcecode.
-- The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}'].
-- Since with credentials the CORS-Header is not allowed to be set to 'Allow-origin: *' the allowed origin(s) have to be set in the configuration at 'corsOrigin'.
+If a running server is detected, the logging settings will be set via rcon.
+
+If you need to change these and know what you are doing, you can edit them in "modules/configClass.js"
+You can add optional command line arguments in config.js
 
 ## Starting
 Start the script with 
 ```console
 node serverControl.js
 ```
+In your brower open http://<yourIP>:8090/gameserver.htm
+
+The API will detect a running server and connect to it.
 
 To start the API on boot and have it running in the background, I recommend [Forever](https://github.com/foreversd/forever)
 
@@ -77,30 +100,6 @@ After authentication there, it will return to '/csgoapi/loginStatus' by default,
 If you use the API in a web interface, you can set 'redirectPage' in the config to your startPage (e.g. http://your-webserver/index.html) This way, you can call up the login page and then be returned to your web application after you got the session cookie in your browser.
 
 If you want to have a manual logout in your client, call '/csgoapi/logout', which will redirect to '/csgoapi/loginStatus' to confirm the success.
-
-### Map filtering
-Filters are used to limit the maps that are transmitted to clients with the serverInfo. Filtering here consists of filter strings and a filter type. The strings are matched as parts against the maps filenames. 'cs_' would match all hostage rescue maps, 'dust' would match all maps that have dust in their names (de_dust2, de_dust, etc.).
-The filter type controls if the matched maps are shown or hidden. 'inlcude' will include all matched maps in the mapsAvail and mapsDetails arrays of serverInfo, 'exclude' will hide them. For Example, if you want to play only bomb-defuse maps, you could set the filter type to 'include' and filter to 'de_'.
-The filter type can only be set globally and not per filter string.
-
-Current filter settings can be queried with
-```javascript
-$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter')
-```
-Return value is JSON: { "type": {string}, "filters": {array of strings} }
-
-Filter control works like this:
-```javascript
-$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/reset')
-$.post('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/<anAction>')
-```
-actions can be:
-- reset (get) -> Resets the filter to tpye 'exclude' and no filter strings.
-- add?filter= (post) -> Adds the given string to the filters.
-- remove?filter= (post) -> Removes the given string, if it exists.
-- type (post) -> Sets the filter type ('include' or 'exclude');
-
-If successful, the call will return the new filter-info, else a JSON error string. E.g.: { "error": "No filter was removed." }
 
 ### Server Control
 ```javascript
@@ -138,6 +137,30 @@ $.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/runstatus')
 $.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/info/rconauthstatus')
 ```
 Query if the server is running or also authenticated for rcon requests. Answer is deleayed if a status change is in progress.
+
+### Map filtering
+Filters are used to limit the maps that are transmitted to clients with the serverInfo. Filtering here consists of filter strings and a filter type. The strings are matched as parts against the maps filenames. 'cs_' would match all hostage rescue maps, 'dust' would match all maps that have dust in their names (de_dust2, de_dust, etc.).
+The filter type controls if the matched maps are shown or hidden. 'inlcude' will include all matched maps in the mapsAvail and mapsDetails arrays of serverInfo, 'exclude' will hide them. For Example, if you want to play only bomb-defuse maps, you could set the filter type to 'include' and filter to 'de_'.
+The filter type can only be set globally and not per filter string.
+
+Current filter settings can be queried with
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter')
+```
+Return value is JSON: { "type": {string}, "filters": {array of strings} }
+
+Filter control works like this:
+```javascript
+$.get('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/reset')
+$.post('http://<your-servers-address>:<your-port>/csgoapi/v1.0/filter/<anAction>')
+```
+actions can be:
+- reset (get) -> Resets the filter to tpye 'exclude' and no filter strings.
+- add?filter= (post) -> Adds the given string to the filters.
+- remove?filter= (post) -> Removes the given string, if it exists.
+- type (post) -> Sets the filter type ('include' or 'exclude');
+
+If successful, the call will return the new filter-info, else a JSON error string. E.g.: { "error": "No filter was removed." }
 
 ## Information Updates via WebSocket
 A websocket is available on a configurable port to receive further information.
