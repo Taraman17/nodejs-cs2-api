@@ -67,17 +67,17 @@ $(document).ready(() => {
                 if (data.payload.state == 'start') {
                     $('#popupCaption').text(`${titles[data.payload.operation]}`);
                     $('#popupText').text('Moment bitte!');
-                    $('.container-popup').css('display', 'flex');
+                    $('#container-popup').css('display', 'flex');
                 } else if (data.payload.state == 'end' && data.payload.operation != 'start') {
                     $('#popupText').html(`${data.payload.operation} success!`);
                     setTimeout(() => {
-                        $('.container-popup').css('display', 'none');
+                        $('#container-popup').css('display', 'none');
                         setupPage();
                     }, 1500);
                 } else if (data.payload.state == 'fail') {
                     $('#popupText').html(`${data.payload.operation} failed!`);
                     setTimeout(() => {
-                        $('.container-popup').css('display', 'none');
+                        $('#container-popup').css('display', 'none');
                         if (data.payload.operation != 'update') {
                             window.location.href = './notauth.htm';
                         }
@@ -88,7 +88,7 @@ $(document).ready(() => {
             } else if (data.type == "mapchange") {
                 if (data.payload.success$ && $('#popupCaption').text() == 'Changing Map') {
                     socket.send('infoRequest');
-                    $('.container-popup').css('display', 'none');
+                    $('#container-popup').css('display', 'none');
                 } else if (!data.payload.success) {
                     $('#popupText').html(`Mapchange failed!`);
                 }
