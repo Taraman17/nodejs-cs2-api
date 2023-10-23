@@ -82,7 +82,7 @@ function setupPage() {
         setupNotLoggedIn();
     });
 
-    $('.container-popup').css('display', 'none');
+    $('#container-popup').css('display', 'none');
 }
 
 function setupNotLoggedIn() {
@@ -131,7 +131,7 @@ function clickButton(aButton) {
     action = aButton.value.toLowerCase();
     $('#popupCaption').text(`${titles[action]}`);
     $('#popupText').text('Moment bitte!');
-    $('.container-popup').css('display', 'flex');
+    $('#container-popup').css('display', 'flex');
     startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${apiPath}/control/${action}`, `startmap=${startMap}`).done((data) => {
@@ -139,7 +139,7 @@ function clickButton(aButton) {
             if (action != 'update') {
                 setupPage();
             }
-            $('.container-popup').hide();
+            $('#container-popup').hide();
         }
     }).fail((err) => {
         let errorText = err.responseJSON.error;
@@ -151,7 +151,7 @@ function clickButton(aButton) {
             window.location.href = './notauth.htm';
         }
         if (socket.readyState != 1) {
-            $('.container-popup').css('display', 'none');
+            $('#container-popup').css('display', 'none');
         }
     });
 }
@@ -226,14 +226,14 @@ function changeMap(event) {
     let map = event.currentTarget.firstElementChild.textContent;
     $('#mapSelector').hide('fast');
     $('#popupCaption').text(titles['mapchange']);
-    $('.container-popup').css('display', 'flex');
+    $('#container-popup').css('display', 'flex');
     sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
             $('#popupText').html(`Changing map to ${map}`);
         } else {
             $('#popupText').html(`Mapchange failed!`);
             window.setTimeout(() => {
-                $('.container-popup').css('display', 'none');
+                $('#container-popup').css('display', 'none');
                 window.location.href = './notauth.htm';
             }, 2000);
 
@@ -245,9 +245,9 @@ function restartRound() {
     sendGet(`${apiPath}/rcon`, `message=mp_restartgame 1`, (data) => {
         $('#popupCaption').text(`Restart Round`);
         $('#popupText').html(`Round Restarted!`);
-        $('.container-popup').css('display', 'flex');
+        $('#container-popup').css('display', 'flex');
         window.setTimeout(() => {
-            $('.container-popup').css('display', 'none');
+            $('#container-popup').css('display', 'none');
         }, 1000);
     });
 }
