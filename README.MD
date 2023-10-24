@@ -1,4 +1,7 @@
 # CS2 Server Control with a Nodejs-powered web-API (LINUX only)
+this API is used to start/stop/update a CS2 linux dedicated server and control it via rcon.
+The backend accepts RESTful api calls authenticated either via steamID or a configurable user with hppt authentication for stateless API calls.
+A full featured example webinterface is provided to get a quick start on the application.
 
 ## Disclaimer
 The use of this software is at your own risk.
