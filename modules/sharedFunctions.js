@@ -6,6 +6,7 @@ var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
 var controlEmitter = require('./controlEmitter.js');
 const config = require('../config.js');
+const { response } = require('express');
 
 rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
 
@@ -90,12 +91,12 @@ async function reloadMaplist() {
                             })
                             resolve(colMaps);
                         } catch (e) {
-                            reject([]);
+                            reject(e);
                         }
                     });
                 }).on('error', (error) => {
                     logger.warn(`Steam Workshop Collection request failed: ${error}`);
-                    reject([]);
+                    reject(error);
                 });
             });
         }
@@ -133,7 +134,7 @@ async function reloadMaplist() {
                                         "name": _mapName, 
                                         "official": official, 
                                         "title": details.title, 
-                                        "workshopID": details.publishedfileid, 
+                                        "workshopID": details.publishedfileid.toString(), 
                                         "description": details.description, 
                                         "previewLink": details.preview_url, 
                                         "tags": details.tags })
@@ -147,11 +148,37 @@ async function reloadMaplist() {
                     });
                 }).on('error', (error) => {
                     logger.warn(`Steam Workshop Maps Request failed: ${error}`);
-                    reject([]);
+                    reject(error);
                 });
                 
             });
         }
+
+        function getWorkshopCollectionMapsFromServer() {
+            return new Promise((resolve, reject) => {
+                executeRcon('ds_workshop_listmaps ').then((response) => {
+                    let mapArray = response.split(/\r?\n/);
+                    let details = [];
+                    mapArray.forEach((value) => {
+                        mapdetails.push({
+                            "name": value,
+                            "official": false,
+                            "title": value,
+                            "workshopID": "",
+                            "description": "",
+                            "previewLink": "",
+                            "tags": [],
+                        });
+                    });
+                    
+                    resolve(details);
+                }).catch((err) => {
+                    logger.warn(`Could not get workshop collection maps from server: ${err}`);
+                    reject(err);
+                });
+            });
+        }
+
 
 
         // Available maps will be built from OfficialMaps.json static file,
@@ -172,25 +199,59 @@ async function reloadMaplist() {
             mapdetails = await getMapDetails(officialMapIds, true);
         } catch(error) {
             logger.warn(`Getting official maps details failed: ${error}`);
+            logger.warn('Falling back to name and ID only');
+            // As fallback use name and id from local file.
+            let alternateDetails = [];
+            omJson.forEach( (map) => {
+                alternateDetails.push( {
+                    "name": map.name,
+                    "official": true,
+                    "title": map.name,
+                    "workshopID": map.id,
+                    "description": "",
+                    "previewLink": "",
+                    "tags": [],
+                });
+            });
+            mapdetails = alternateDetails;
         }
-        
+
         if (cfg.workshopCollection != '') {
             logger.debug("getting collection ids");
             try {
                 workshopMapIds = await getWorkshopCollection(cfg.workshopCollection);
             } catch (error) {
-                logger.warn(`Getting Workshop map IDs failed: ${error}`);
+                logger.warn(`Getting Workshop map IDs failed: ${error}
+Trying to get names from server.`);
+                // As a fallback try to get workshop maps from server via rcon command.
+                try {
+                    mapdetails.push(...await getWorkshopCollectionMapsFromServer());
+                } catch (err) {
+                    logger.warn(`Loading workshop maps from server failed: ${err}
+Workshop maps not available.`);
+                }
             }
         }
         workshopMapIds.push(...cfg.workshopMaps);
 
-        logger.debug("getting workshop maps");
-        try {
-            mapdetails.push(...await getMapDetails(workshopMapIds, false));
-        } catch(error) {
-            logger.warn(`Getting Workshop maps details failed: ${error}`);
+        if(workshopMapIds.length > 0) {
+            logger.debug("getting workshop maps details");
+            try {
+                mapdetails.push(...await getMapDetails(workshopMapIds, false));
+            } catch(error) {
+                logger.warn(`Getting Workshop maps details failed: ${error}`);
+                // As a fallback try to get workshop maps from server via rcon command.
+                try {
+                    mapdetails.push(...await getWorkshopCollectionMapsFromServer());
+                } catch (err) {
+                    logger.warn(`Loading workshop maps from server failed: ${err}
+Workshop maps not available.`);
+                }
+            }
         }
-        // mapdetails.sort((a, b) => a.name.localeCompare(b.title));
+        if (mapdetails.length > 1) {
+            mapdetails.sort((a, b) => a.title.localeCompare(b.title));
+        }
 
         serverInfo.mapsDetails = mapdetails;
         // TODO: Check if this is still needed.

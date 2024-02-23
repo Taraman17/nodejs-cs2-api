@@ -626,7 +626,11 @@ router.get('/control/changemap', (req, res) => {
             if (map.official) {
                 mapchangeCommand = `map ${map.name}`;
             } else {
-                mapchangeCommand = `host_workshop_map ${map.workshopID}`
+                if (map.workshopID != '') {
+                    mapchangeCommand = `host_workshop_map ${map.workshopID}`;
+                } else {
+                    mapchangeCommand = `ds_workshop_changelevel ${map.name}`;
+                }
             }
 
             sf.executeRcon(mapchangeCommand).then((answer) => {
