@@ -24,6 +24,7 @@ class serverInfo {
         this._mapsAvail = []
         this._mapsDetails = [
             //{ 'name': '',
+            //  'official': true/false,
             //  'title': '',
             //  'workshopID': '',
             //  'description': '',
@@ -41,7 +42,9 @@ class serverInfo {
         this._players = [
             //{ 'name': '',
             //  'steamID': '',
-            //  'team': '' }
+            //  'team': '',
+            //  'kills': 0,
+            //  'deaths': 0 }
         ];
 
         // emitter to notify of changes
@@ -92,7 +95,7 @@ class serverInfo {
     }
 
     get mapsDetails() {
-        return this._mapsAvail;
+        return this._mapsDetails;
     }
     set mapsDetails(newMapsDetails) {
         this._mapsDetails = newMapsDetails;
@@ -189,30 +192,41 @@ class serverInfo {
         return this._players;
     }
     addPlayer(newPlayer) {
-        newPlayer.team = 'U';
-        this._players.push(newPlayer);
+        if (this._players.find(x => x.steamID === newPlayer.steamID) != undefined) {
+            this._players.find(x => x.steamID === newPlayer.steamID).disconnected = false
+        } else {
+            newPlayer.team = 'U';
+            newPlayer.kills = 0;
+            newPlayer.deaths = 0;
+            newPlayer.disconnected = false;
+            this._players.push(newPlayer);
+        }
         this.serverInfoChanged.emit('change');
     }
-    assignPlayer(steamID, team) {
-        for (let i = 0; i < this._players.length; i++) {
-            if (this._players[i].steamID == steamID) {
-                this._players[i].team = team.substr(0, 1);
-                i = this._players.length;
-            }
+    assignPlayer(name, steamID, team) {
+        if (this._players.find(x => x.steamID === steamID) == undefined ) {
+            this.addPlayer({'name': name, 'steamID': steamID });
         }
+        let player = this._players.find(x => x.steamID === steamID);
+        player.team = team.substr(0, 1);
         this.serverInfoChanged.emit('change');
     }
     removePlayer(steamID) {
-        for (let i = 0; i < this._players.length; i++) {
-            if (this._players[i].steamID == steamID) {
-                this._players.splice(i, 1);
-                i = this._players.length;
-            }
-        }
+        this._players.find(x => x.steamID === steamID).disconnected = true;
+        // this._players.splice(this._players.findIndex(x => x.steamID === steamID), 1);
         this.serverInfoChanged.emit('change');
     }
     clearPlayers() {
         this._players = [];
+        this.serverInfoChanged.emit('change');
+    }
+    recordKill(killer, victim) {
+        let killPlayer = this._players.find(x => x.steamID === killer);
+        if (killPlayer != undefined)
+            killPlayer.kills += 1;
+        let victimPlayer = this._players.find(x => x.steamID === victim);
+        if (victimPlayer != undefined)
+            victimPlayer.deaths += 1;
         this.serverInfoChanged.emit('change');
     }
 
@@ -232,6 +246,10 @@ class serverInfo {
     newMatch() {
         this._score.C = 0;
         this._score.T = 0;
+        for (let i in this._players) {
+            this._players[i].kills = 0;
+            this._players[i].deaths = 0;
+        }
         this.serverInfoChanged.emit('change');
     }
     reset() {

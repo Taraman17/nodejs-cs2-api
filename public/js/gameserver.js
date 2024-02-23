@@ -192,8 +192,9 @@ function getMaps() {
         maplist.forEach((map) => {
             if ('content' in document.createElement('template')) {
                 var mapDiv = document.querySelector('#maptemplate');
-                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                mapDiv.content.querySelector('.mapname').textContent = map.title;
                 mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink);
+                mapDiv.content.querySelector('.map').setAttribute("id", map.workshopID);
                 $('#mapSelector').append(document.importNode(mapDiv.content, true));
             } else {
                 let alttext = createElement('h2');
@@ -223,22 +224,25 @@ function showPlay(event) {
 }
 
 function changeMap(event) {
-    let map = event.currentTarget.firstElementChild.textContent;
+    let map = event.currentTarget.getAttribute("id");
     $('#mapSelector').hide('fast');
-    $('#popupCaption').text(titles['mapchange']);
-    $('#container-popup').css('display', 'flex');
-    sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
-        if (data.success) {
-            $('#popupText').html(`Changing map to ${map}`);
-        } else {
-            $('#popupText').html(`Mapchange failed!`);
-            window.setTimeout(() => {
-                $('#container-popup').css('display', 'none');
-                window.location.href = './notauth.htm';
-            }, 2000);
+    //$('#popupCaption').text(titles['mapchange']);
+    //$('#container-popup').css('display', 'flex');
+    if (event.currentTarget.children[2].attributes["src"].nodeValue != "") {
+        sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
+            if (data.success) {
+                $('#popupText').html(`Changing map to ${map}`);
+            } else {
+                $('#popupText').html(`Mapchange failed!`);
+                window.setTimeout(() => {
+                    $('#container-popup').css('display', 'none');
+                }, 2000);
 
-        }
-    });
+            }
+        });
+    } else {
+        sendGet(`${apiPath}/rcon`, `message=ds_workshop_changelevel ${map}`);
+    }
 }
 
 function restartRound() {

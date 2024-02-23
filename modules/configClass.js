@@ -14,12 +14,28 @@ class config {
         return `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this._localIp}:${this.logPort}/log" ${this._userOptions.csgoOptionalArgs}`;
     }
 
+    get apiToken() {
+        return this._userOptions.apiToken;
+    }
     get rconPass() {
         return this._userOptions.rconPass;
     }
 
     get admins() {
         return this._userOptions.admins;
+    }
+
+    get workshopCollection() {
+        return this._userOptions.workshopCollection;
+    }
+    set workshopCollection(id) {
+        this._userOptions.workshopCollection = id;
+    }
+    get workshopMaps() {
+        return this._userOptions.workshopMaps;
+    }
+    set workshopMaps(maps) {
+        this._userOptions.workshopMaps = maps;
     }
 
     get redirectPage() {

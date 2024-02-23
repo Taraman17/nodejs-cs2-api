@@ -3,7 +3,8 @@
  * @requires node-pty
  * @requires express
  * @requires ./config.js
- * @requires ./emitters.js
+ * @requires ./serverInfo.js
+ * @requires ./controlEmitter.js
  * @requires ./sharedFunctions.js
  */
 
@@ -601,7 +602,7 @@ router.get('/control/update', (req, res) => {
  * @apiName changemap
  * @apiGroup Control
  *
- * @apiParam {string} mapname filename of the map without extension (.bsp)
+ * @apiParam {string/int} map  name, title or workshopID of a map.
  * @apiParamExample {string} Map-example
  *     cs_italy
  *
@@ -619,16 +620,24 @@ router.get('/control/changemap', (req, res) => {
     if (serverInfo.serverState.operationPending == 'none') {
         controlEmitter.emit('exec', 'mapchange', 'start');
         // only try to change map, if it exists on the server.
-        if (serverInfo.mapsAvail.includes(args.map)) {
-            sf.executeRcon(`map ${args.map}`).then((answer) => {
-                // Answer on sucess:
+        let map = sf.getMap(args.map);
+        if (map != undefined) {
+            let mapchangeCommand = '';
+            if (map.official) {
+                mapchangeCommand = `map ${map.name}`;
+            } else {
+                mapchangeCommand = `host_workshop_map ${map.workshopID}`
+            }
+
+            sf.executeRcon(mapchangeCommand).then((answer) => {
+                // Answer on success (unfortunately only available for official maps):
                 // Changelevel to de_nuke
                 // changelevel "de_nuke"
                 // CHostStateMgr::QueueNewRequest( Changelevel (de_nuke), 5 ) 
                 //
                 // Answer on failure:
                 // changelevel de_italy:  invalid map name
-                if (answer.indexOf(`CHostStateMgr::QueueNewRequest( Changelevel (${args.map})`) == -1) {
+                if (map.official && answer.indexOf(`CHostStateMgr::QueueNewRequest( Changelevel (${map.name})`) == -1) {
                     // If the mapchange command fails, return failure immediately
                     res.status(501).json({ "error": `Mapchange failed: ${answer}` });
                     controlEmitter.emit('exec', 'mapchange', 'fail');

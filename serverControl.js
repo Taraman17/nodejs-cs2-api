@@ -97,7 +97,7 @@ controlEmitter.on('exec', (operation, action) => {
         sf.reloadMaplist().then((answer) => {
             logger.info('Maps reloaded');
         }).catch((err) => {
-            logger.warn("Maps could not be loaded");
+            logger.warn(`Maps could not be loaded: ${err}`);
         });
         sf.queryMaxRounds();
     }

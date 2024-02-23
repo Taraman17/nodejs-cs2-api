@@ -90,17 +90,21 @@ router.post('/log', (req, res) => {
                 // 10/12/2023 - 18:57:47: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <Unassigned> to <CT>
                 // 10/12/2023 - 18:59:25: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <TERRORIST> to <Spectator>
                 // 10/16/2023 - 16:31:59.699 - "[Klosser] Taraman<2><[U:1:12610374]><CT>" disconnected (reason "NETWORK_DISCONNECT_DISCONNECT_BY_USER")
+                // "Strapper<6><BOT><TERRORIST>"
                 let rex = /\"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]></g;
                 let matches = rex.exec(line);
                 if (line.indexOf('entered the game') != -1) {
                     serverInfo.addPlayer({ 'name': matches[1], 'steamID': matches[2] });
                 } else if (line.search(/disconnected \(reason/) != -1) {
-                    logger.debug(line);
                     serverInfo.removePlayer(matches[2]);
                 } else if (line.indexOf('switched from team') != -1) {
-                    rex = /<\[(\w:\d:\d{1,10})\]>\" switched from team <\S{1,10}> to <(\S{1,10})>/g;
+                    rex = /\"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]>\" switched from team <\S{1,10}> to <(\S{1,10})>/g;
                     matches = rex.exec(line);
-                    serverInfo.assignPlayer(matches[1], matches[2]);
+                    serverInfo.assignPlayer(matches[1], matches[2], matches[3]);
+                } else if (line.search(/\[\w:\d:\d{1,10}\]><\w{1,10}>\" \[.{1,5} .{1,5} .{1,5}\] killed \".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]/) != -1) {
+                    rex = /\[(\w:\d:\d{1,10})\]><\w{1,10}>\" \[.{1,5} .{1,5} .{1,5}\] killed \".{1,32}<\d{1,3}><\[(\w:\d:\d{1,10})\]/
+                    matches = rex.exec(line);
+                    serverInfo.recordKill(matches[1], matches[2]);
                 }
             } else if (line.indexOf('Log file closed') != -1) {
                 // end of current log file. (Usually on mapchange or server quit.)
