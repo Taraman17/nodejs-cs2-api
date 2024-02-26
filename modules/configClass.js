@@ -15,7 +15,11 @@ class config {
         this.#localIp = '';
     }
     get #csgoArgs() {
-        return `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this.#localIp}:${this.#userOptions.logPort}/log" ${this.#userOptions.csgoOptionalArgs}`;
+        let args = `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this.#localIp}:${this.#userOptions.logPort}/log" ${this.#userOptions.csgoOptionalArgs}`;
+        if (this.#userOptions.workshopCollection != '') {
+            args += ` +host_workshop_collection ${this.#userOptions.workshopCollection}`;
+        }
+        return args;
     }
 
     get apiToken() {

@@ -63,7 +63,8 @@ exec('/bin/ps -A', (error, stdout, stderr) => {
         logger.verbose('Found running server');
         sf.authenticate().then((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
-            sf.executeRcon(`logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`)
+            sf.executeRcon(`logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`);
+            sf.executeRcon(`host_workshop_collection ${cfg.workshopCollection}`);
         }).catch((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
         });
