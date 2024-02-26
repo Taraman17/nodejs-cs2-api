@@ -31,7 +31,7 @@ router.post('/log', (req, res) => {
             } else if (line.indexOf('Loading map ') != -1) {
                 // Start of map.
                 // L 10/13/2023 - 14:28:38: Loading map "de_anubis"
-                let rex = /Loading map \"(\S+)\"/g;
+                let rex = /Loading map "(\S+)"/g;
                 let matches = rex.exec(line);
                 let mapstring = matches[1];
                 mapstring = sf.cutMapName(mapstring);
@@ -65,11 +65,11 @@ router.post('/log', (req, res) => {
                 if (cfg.script('roundStart') != '') {
                     exec(cfg.script('roundStart'));
                 }
-            } else if (/Team \"\S+\" scored/.test(line)) {
+            } else if (/Team "\S+" scored/.test(line)) {
                 // Team scores at end of round.
                 // L 02/10/2019 - 21:31:15: Team "CT" scored "1" with "2" players
                 // L 02/10/2019 - 21:31:15: Team "TERRORIST" scored "1" with "2" players
-                rex = /Team \"(\S)\S+\" scored \"(\d+)\"/g;
+                let rex = /Team "(\S)\S+" scored "(\d+)"/g;
                 let matches = rex.exec(line);
                 serverInfo.score = matches;
             } else if (line.indexOf('World triggered "Round_End"') != -1) {
@@ -84,25 +84,25 @@ router.post('/log', (req, res) => {
                 if (cfg.script('matchEnd') != '') {
                     exec(cfg.script('matchEnd'));
                 }
-            } else if (/\".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]>/.test(line)) {
+            } else if (/".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]>/.test(line)) {
                 // Player join or teamchange.
                 // 10/12/2023 - 16:06:38: "[Klosser] Taraman<2><[U:1:12610374]><>" entered the game
                 // 10/12/2023 - 18:57:47: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <Unassigned> to <CT>
                 // 10/12/2023 - 18:59:25: "[Klosser] Taraman<2><[U:1:12610374]>" switched from team <TERRORIST> to <Spectator>
                 // 10/16/2023 - 16:31:59.699 - "[Klosser] Taraman<2><[U:1:12610374]><CT>" disconnected (reason "NETWORK_DISCONNECT_DISCONNECT_BY_USER")
                 // "Strapper<6><BOT><TERRORIST>"
-                let rex = /\"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]></g;
+                let rex = /"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]></g;
                 let matches = rex.exec(line);
                 if (line.indexOf('entered the game') != -1) {
                     serverInfo.addPlayer({ 'name': matches[1], 'steamID': matches[2] });
                 } else if (line.search(/disconnected \(reason/) != -1) {
                     serverInfo.removePlayer(matches[2]);
                 } else if (line.indexOf('switched from team') != -1) {
-                    rex = /\"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]>\" switched from team <\S{1,10}> to <(\S{1,10})>/g;
+                    rex = /"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]>" switched from team <\S{1,10}> to <(\S{1,10})>/g;
                     matches = rex.exec(line);
                     serverInfo.assignPlayer(matches[1], matches[2], matches[3]);
-                } else if (line.search(/\[\w:\d:\d{1,10}\]><\w{1,10}>\" \[.{1,5} .{1,5} .{1,5}\] killed \".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]/) != -1) {
-                    rex = /\[(\w:\d:\d{1,10})\]><\w{1,10}>\" \[.{1,5} .{1,5} .{1,5}\] killed \".{1,32}<\d{1,3}><\[(\w:\d:\d{1,10})\]/
+                } else if (line.search(/\[\w:\d:\d{1,10}\]><\w{1,10}>" \[.{1,5} .{1,5} .{1,5}\] killed ".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]/) != -1) {
+                    rex = /\[(\w:\d:\d{1,10})\]><\w{1,10}>" \[.{1,5} .{1,5} .{1,5}\] killed ".{1,32}<\d{1,3}><\[(\w:\d:\d{1,10})\]/
                     matches = rex.exec(line);
                     serverInfo.recordKill(matches[1], matches[2]);
                 }

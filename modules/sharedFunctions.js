@@ -5,10 +5,8 @@ const logger = require('./logger.js');
 var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
 var controlEmitter = require('./controlEmitter.js');
-const config = require('../config.js');
-const { response } = require('express');
 
-rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
+const rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
 
 /**
  * Authenticate rcon with server
@@ -77,7 +75,7 @@ async function reloadMaplist() {
     return new Promise( async (resolve, reject) => {
         function getWorkshopCollection(id) {
             return new Promise((resolve, reject) => {
-                https.get(`https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}&publishedfileids[0]=${cfg.workshopCollection}&includechildren=true`, (res) => {
+                https.get(`https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}&publishedfileids[0]=${id}&includechildren=true`, (res) => {
                     let resData = '';
                     res.on('data', (dataChunk) => {
                         resData += dataChunk;
@@ -257,6 +255,7 @@ Workshop maps not available.`);
         // TODO: Check if this is still needed.
         // serverInfo.mapsAvail = maplist;
         if(mapdetails.length > 0) {
+            logger.info('Maps reloaded');
             resolve({ "success": true });
         } else {
             logger.warn('Update maps failed: Maplist is empty.');
@@ -303,31 +302,14 @@ function executeRcon(message) {
 
 /*------------------------- Helper Functions ----------------------------*/
 /**
- * Extracts all matches for a regex.
- * @param {string} string - String to search.
- * @param {regex} regex   - Regex to execute on the string.
- * @param {integer} index - Optional index which capturing group should be retreived.
- * @returns {string[]} matches - Array holding the found matches.
- */
-function getMatches(string, regex, index) {
-    index || (index = 1); // default to the first capturing group
-    var matches = [];
-    var match;
-    while (match = regex.exec(string)) {
-        matches.push(match[index]);
-    }
-    return matches;
-}
-
-/**
  * Cuts the bare map-name from the various representations in the servers responses.
  * @param {string} mapstring   - The response of mapname(s) from rcon.
  * @returns {string} mapstring -  The mapname without workshop path or .bsp
  */
 function cutMapName(mapstring) {
     if (mapstring.search('workshop') != -1) {
-        re = /(\w+)/g;
-        matches = mapstring.match(re);
+        let re = /(\w+)/g;
+        let matches = mapstring.match(re);
         mapstring = matches[2];
     }
     if (mapstring.search(".bsp") != -1) {

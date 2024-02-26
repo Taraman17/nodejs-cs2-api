@@ -294,7 +294,7 @@ router.get('/control/start', (req, res) => {
         }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
         logger.info(commandLine);
-        let serverProcess = exec(commandLine, (error, stdout, stderr) => {
+        exec(commandLine, (error, stdout, stderr) => {
             if (error) {
                 // node couldn't execute the command.
                 res.status(501).json({ "error": error.code });
@@ -443,12 +443,17 @@ router.get('/control/stop', (req, res) => {
         controlEmitter.emit('exec', 'stop', 'start');
         logger.verbose("sending quit.");
         sf.executeRcon('quit').then((answer) => {
-            // CHostStateMgr::QueueNewRequest( Quitting, 8 )
-            // TODO: find out if command quit can fail.
-            serverInfo.serverState.serverRunning = false;
-            serverInfo.serverState.authenticated = false;
-            serverInfo.reset();
-            res.json({ "success": true });
+            if (answer.indexOf("CHostStateMgr::QueueNewRequest( Quitting") != -1) {
+                // CHostStateMgr::QueueNewRequest( Quitting, 8 )
+                // TODO: find out if command quit can fail.
+                serverInfo.serverState.serverRunning = false;
+                serverInfo.serverState.authenticated = false;
+                serverInfo.reset();
+                res.json({ "success": true });
+            } else {
+                res.status(501).json({ "error": `RCON response not correct.` });
+                logger.warn("Stopping the server failed - rcon command not successful");
+            }
             controlEmitter.emit('exec', 'stop', 'end');
         }).catch((err) => {
             logger.error('Stopping server Failed: ' + err);
@@ -484,12 +489,13 @@ router.get('/control/stop', (req, res) => {
 router.get('/control/kill', (req, res) => {
     exec('/bin/ps -A |grep cs2', (error, stdout, stderr) => {
         if (error) {
-            logger.error(`exec error: ${error}`);
+            logger.error(`exec error: ${error}, ${stderr}`);
             res.status(501).json({ "error": "Could not find csgo server process" });
         } else if (stdout.match(/cs2/) != null) {
             let pid = stdout.split(/\s+/)[1];
             exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
                 if (error) {
+                    logger.warn(`Server process could not be killed: ${error}: ${stderr}`);
                     res.status(501).json({ "error": "Could not kill csgo server process" });
                 } else {
                     // reset API-State
@@ -563,7 +569,7 @@ router.get('/control/update', (req, res) => {
                 res.json(`{ "success": true }`);
                 updateProcess.once('close', (code) => {
                     if (!updateSuccess) {
-                        logger.warn('Update exited without success.');
+                        logger.warn(`Update exited without success. Exit code: ${code}`);
                         controlEmitter.emit('progress', 'Update failed!', 100);
                         controlEmitter.emit('exec', 'update', 'fail');
                     }
@@ -573,7 +579,7 @@ router.get('/control/update', (req, res) => {
                     if (updateSuccess) {
                         res.json({ "success": true });
                     } else {
-                        logger.warn('Update exited without success.');
+                        logger.warn(`Update exited without success. Exit code: ${code}`);
                         res.status(501).json({ "error": "Update was not successful" });
                     }
                     controlEmitter.emit('exec', 'update', 'end');

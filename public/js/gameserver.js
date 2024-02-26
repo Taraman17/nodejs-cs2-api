@@ -14,8 +14,6 @@ var titles = {
     'mapchange': 'Changing map',
     'pause': 'Pausing/Unpausing match'
 }
-var running = false;
-var authenticated = false;
 
 // Redirect to login page.
 function doLogin() {
@@ -51,7 +49,7 @@ function loadMaplist() {
 // Setup the Elements according to server status.
 function setupPage() {
     $('#popupCaption').text('Querying Server');
-    getPromise = (path) => {
+    let getPromise = (path) => {
         return Promise.resolve(sendGet(`${address}/${path}`));
     }
 
@@ -72,13 +70,13 @@ function setupPage() {
                         }
                     });
                 }
-            }).catch((error) => {
+            }).catch(() => {
                 setupServerStopped();
             });
         } else {
             setupNotLoggedIn();
         }
-    }).catch((error) => {
+    }).catch(() => {
         setupNotLoggedIn();
     });
 
@@ -128,11 +126,11 @@ function setupServerStopped() {
 }
 
 function clickButton(aButton) {
-    action = aButton.value.toLowerCase();
+    let action = aButton.value.toLowerCase();
     $('#popupCaption').text(`${titles[action]}`);
     $('#popupText').text('Moment bitte!');
     $('#container-popup').css('display', 'flex');
-    startMap = document.getElementById('mapAuswahl').value;
+    let startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${apiPath}/control/${action}`, `startmap=${startMap}`).done((data) => {
         if (socket.readyState != 1) { // if websocket not connected
@@ -224,25 +222,21 @@ function showPlay(event) {
 }
 
 function changeMap(event) {
-    let map = event.currentTarget.getAttribute("id");
+    let map = event.currentTarget.firstElementChild.textContent;
     $('#mapSelector').hide('fast');
     //$('#popupCaption').text(titles['mapchange']);
     //$('#container-popup').css('display', 'flex');
-    if (event.currentTarget.children[2].attributes["src"].nodeValue != "") {
-        sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
-            if (data.success) {
-                $('#popupText').html(`Changing map to ${map}`);
-            } else {
-                $('#popupText').html(`Mapchange failed!`);
-                window.setTimeout(() => {
-                    $('#container-popup').css('display', 'none');
-                }, 2000);
+    sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
+        if (data.success) {
+            $('#popupText').html(`Changing map to ${map}`);
+        } else {
+            $('#popupText').html(`Mapchange failed!`);
+            window.setTimeout(() => {
+                $('#container-popup').css('display', 'none');
+            }, 2000);
 
-            }
-        });
-    } else {
-        sendGet(`${apiPath}/rcon`, `message=ds_workshop_changelevel ${map}`);
-    }
+        }
+    });
 }
 
 function restartRound() {
@@ -294,7 +288,6 @@ function authenticate(caller) {
 }
 
 function kill(caller) {
-
     sendGet(`${apiPath}/control/kill`).done((data) => {
         window.location.href = './gameserver.htm';
     }).fail((error) => {
