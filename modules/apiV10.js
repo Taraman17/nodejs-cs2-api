@@ -3,7 +3,8 @@
  * @requires node-pty
  * @requires express
  * @requires ./config.js
- * @requires ./emitters.js
+ * @requires ./serverInfo.js
+ * @requires ./controlEmitter.js
  * @requires ./sharedFunctions.js
  */
 
@@ -293,7 +294,7 @@ router.get('/control/start', (req, res) => {
         }
         let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
         logger.info(commandLine);
-        let serverProcess = exec(commandLine, (error, stdout, stderr) => {
+        exec(commandLine, (error, stdout, stderr) => {
             if (error) {
                 // node couldn't execute the command.
                 res.status(501).json({ "error": error.code });
@@ -442,12 +443,17 @@ router.get('/control/stop', (req, res) => {
         controlEmitter.emit('exec', 'stop', 'start');
         logger.verbose("sending quit.");
         sf.executeRcon('quit').then((answer) => {
-            // CHostStateMgr::QueueNewRequest( Quitting, 8 )
-            // TODO: find out if command quit can fail.
-            serverInfo.serverState.serverRunning = false;
-            serverInfo.serverState.authenticated = false;
-            serverInfo.reset();
-            res.json({ "success": true });
+            if (answer.indexOf("CHostStateMgr::QueueNewRequest( Quitting") != -1) {
+                // CHostStateMgr::QueueNewRequest( Quitting, 8 )
+                // TODO: find out if command quit can fail.
+                serverInfo.serverState.serverRunning = false;
+                serverInfo.serverState.authenticated = false;
+                serverInfo.reset();
+                res.json({ "success": true });
+            } else {
+                res.status(501).json({ "error": `RCON response not correct.` });
+                logger.warn("Stopping the server failed - rcon command not successful");
+            }
             controlEmitter.emit('exec', 'stop', 'end');
         }).catch((err) => {
             logger.error('Stopping server Failed: ' + err);
@@ -483,12 +489,13 @@ router.get('/control/stop', (req, res) => {
 router.get('/control/kill', (req, res) => {
     exec('/bin/ps -A |grep cs2', (error, stdout, stderr) => {
         if (error) {
-            logger.error(`exec error: ${error}`);
+            logger.error(`exec error: ${error}, ${stderr}`);
             res.status(501).json({ "error": "Could not find csgo server process" });
         } else if (stdout.match(/cs2/) != null) {
             let pid = stdout.split(/\s+/)[1];
             exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
                 if (error) {
+                    logger.warn(`Server process could not be killed: ${error}: ${stderr}`);
                     res.status(501).json({ "error": "Could not kill csgo server process" });
                 } else {
                     // reset API-State
@@ -562,7 +569,7 @@ router.get('/control/update', (req, res) => {
                 res.json(`{ "success": true }`);
                 updateProcess.once('close', (code) => {
                     if (!updateSuccess) {
-                        logger.warn('Update exited without success.');
+                        logger.warn(`Update exited without success. Exit code: ${code}`);
                         controlEmitter.emit('progress', 'Update failed!', 100);
                         controlEmitter.emit('exec', 'update', 'fail');
                     }
@@ -572,7 +579,7 @@ router.get('/control/update', (req, res) => {
                     if (updateSuccess) {
                         res.json({ "success": true });
                     } else {
-                        logger.warn('Update exited without success.');
+                        logger.warn(`Update exited without success. Exit code: ${code}`);
                         res.status(501).json({ "error": "Update was not successful" });
                     }
                     controlEmitter.emit('exec', 'update', 'end');
@@ -601,7 +608,7 @@ router.get('/control/update', (req, res) => {
  * @apiName changemap
  * @apiGroup Control
  *
- * @apiParam {string} mapname filename of the map without extension (.bsp)
+ * @apiParam {string/int} map  name, title or workshopID of a map.
  * @apiParamExample {string} Map-example
  *     cs_italy
  *
@@ -619,16 +626,28 @@ router.get('/control/changemap', (req, res) => {
     if (serverInfo.serverState.operationPending == 'none') {
         controlEmitter.emit('exec', 'mapchange', 'start');
         // only try to change map, if it exists on the server.
-        if (serverInfo.mapsAvail.includes(args.map)) {
-            sf.executeRcon(`map ${args.map}`).then((answer) => {
-                // Answer on sucess:
+        let map = sf.getMap(args.map);
+        if (map != undefined) {
+            let mapchangeCommand = '';
+            if (map.official) {
+                mapchangeCommand = `map ${map.name}`;
+            } else {
+                if (map.workshopID != '') {
+                    mapchangeCommand = `host_workshop_map ${map.workshopID}`;
+                } else {
+                    mapchangeCommand = `ds_workshop_changelevel ${map.name}`;
+                }
+            }
+
+            sf.executeRcon(mapchangeCommand).then((answer) => {
+                // Answer on success (unfortunately only available for official maps):
                 // Changelevel to de_nuke
                 // changelevel "de_nuke"
                 // CHostStateMgr::QueueNewRequest( Changelevel (de_nuke), 5 ) 
                 //
                 // Answer on failure:
                 // changelevel de_italy:  invalid map name
-                if (answer.indexOf(`CHostStateMgr::QueueNewRequest( Changelevel (${args.map})`) == -1) {
+                if (map.official && answer.indexOf(`CHostStateMgr::QueueNewRequest( Changelevel (${map.name})`) == -1) {
                     // If the mapchange command fails, return failure immediately
                     res.status(501).json({ "error": `Mapchange failed: ${answer}` });
                     controlEmitter.emit('exec', 'mapchange', 'fail');

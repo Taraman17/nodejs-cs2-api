@@ -14,10 +14,20 @@
     
     /* Optional settings */
     // Anything you want your server command line to have additional to:
-    // -console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this._localIp}:${this.logPort}/log"
+    // -console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging 
+    // +logaddress_add_http "http://${this._localIp}:${this.logPort}/log"
     "csgoOptionalArgs": "",
     // steam serverToken for public access. To get one see https://steamcommunity.com/dev/managegameservers
     "serverToken": "",
+    // Steam Web API token. Needed to get mapdetails like thumbnail, etc
+    // See https://steamcommunity.com/dev/apikey how to get one.
+    "apiToken": "",
+        // Workshop Collection to host on the server.
+    "workshopCollection": "",
+    // List of workshop ids of maps to add to available maps.
+    "workshopMaps": [ // '23423523523525',
+                      // '37281723987123'
+                    ],
     // If you want to use a different name / location for the update script (absolute path).
     "updateScript": "",
     // Time in minutes, after which a new login is needed.
@@ -42,7 +52,7 @@
     // If you use https, add the path to the certificate files here.
     "httpsCertificate": "",
     "httpsPrivateKey": "",
-    // Optional: In case your CA is not trusted by default (e.g. letsencrypt), you can add 
+    // In case your CA is not trusted by default (e.g. letsencrypt), you can add 
     // the CA-Cert here.
     "httpsCa": "",
     // Change this to any string of your liking to make it harder for attackers to profile your cookies.

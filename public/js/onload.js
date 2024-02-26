@@ -34,7 +34,20 @@ $(document).ready(() => {
                 if (serverInfo.players.length > 0) {
                     for (let i = 0; i < serverInfo.players.length; i++) {
                         let player = serverInfo.players[i];
-                        $(`#${player.team.toLowerCase()}List`).append(`<li class="dropbtn">${player.name}</li>`);
+                        if (player.disconnected) {
+                            break;
+                        }
+                        if ('content' in document.createElement('template')) {
+                            var playerLi = document.querySelector('#playerTemplate');
+                            playerLi.content.querySelector('.playerName').textContent = player.name;
+                            playerLi.content.querySelector('.playerKills').textContent = `K: ${player.kills}`;
+                            playerLi.content.querySelector('.playerDeaths').textContent = `D: ${player.deaths}`;
+                            $(`#${player.team.toLowerCase()}List`).append(document.importNode(playerLi.content, true));
+                        } else {
+                            let alttext = document.createElement('li');
+                            alttext.html("Your browser does not have HTML template support - please use another browser.");
+                            $(`#${player.team.toLowerCase()}List`).append(alttext);
+                        }
                         $(`#${player.team.toLowerCase()}Players`).show(0);
                     }
                 }
@@ -52,12 +65,13 @@ $(document).ready(() => {
                         maplist.forEach((map) => {
                             if ('content' in document.createElement('template')) {
                                 var mapDiv = document.querySelector('#maptemplate');
-                                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                                mapDiv.content.querySelector('.mapname').textContent = map.title;
                                 mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink ? map.previewLink : '');
+                                mapDiv.content.querySelector('.map').setAttribute("id", map.workshopID);
                                 $('#mapSelector').append(document.importNode(mapDiv.content, true));
                             } else {
                                 let alttext = document.createElement('h2');
-                                text.html("Your browser does not have HTML template support - please use another browser.");
+                                alttext.html("Your browser does not have HTML template support - please use another browser.");
                                 $('#mapSelector').append(alttext);
                             }
                         });
@@ -78,7 +92,7 @@ $(document).ready(() => {
                     $('#popupText').html(`${data.payload.operation} failed!`);
                     setTimeout(() => {
                         $('#container-popup').css('display', 'none');
-                        if (data.payload.operation != 'update') {
+                        if (data.payload.operation != 'update' && data.payload.operation != 'mapchange') {
                             window.location.href = './notauth.htm';
                         }
                     }, 3000);

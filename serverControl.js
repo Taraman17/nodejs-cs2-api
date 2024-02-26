@@ -1,7 +1,7 @@
 /**
  * @file CS:GO Dedicated Server Control
  * @author Markus Adrario <mozilla@adrario.de>
- * @version 1.0
+ * @version 2.0
  * @requires express
  * @requires express-session
  * @requires express-rate-limit
@@ -11,8 +11,6 @@
  * @requires http
  * @requires https
  * @requires ws
- * @requires url
- * @requires events
  * @requires child_process
  * @requires rcon-srcds
  * @requires ./modules/logger.js
@@ -29,9 +27,7 @@ const passport = require('passport');
 const SteamStrategy = require('passport-steam').Strategy;
 const BasicStrategy = require('passport-http').BasicStrategy;
 const webSocket = require('ws');
-const url = require('url');
 const fs = require('fs');
-const events = require('events');
 const { exec } = require('child_process');
 const logger = require('./modules/logger.js');
 var serverInfo = require('./modules/serverInfo.js');
@@ -59,6 +55,7 @@ if (cfg.useHttps) {
 exec('/bin/ps -A', (error, stdout, stderr) => {
     if (error) {
         logger.error(`exec error: ${error}`);
+        logger.error(stderr)
         return;
     }
     if (stdout.match(/cs2/) != null) {
@@ -66,7 +63,8 @@ exec('/bin/ps -A', (error, stdout, stderr) => {
         logger.verbose('Found running server');
         sf.authenticate().then((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
-            sf.executeRcon(`logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`)
+            sf.executeRcon(`logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`);
+            sf.executeRcon(`host_workshop_collection ${cfg.workshopCollection}`);
         }).catch((data) => {
             logger.verbose(`authentication ${data.authenticated}`);
         });
@@ -94,10 +92,10 @@ controlEmitter.on('exec', (operation, action) => {
             let mapstring = matches[1];
             serverInfo.map = sf.cutMapName(mapstring);
         });
-        sf.reloadMaplist().then((answer) => {
-            logger.info('Maps reloaded');
+        sf.reloadMaplist().then(() => {
+            // Be happy and do nothing
         }).catch((err) => {
-            logger.warn("Maps could not be loaded");
+            logger.warn(`Maps could not be loaded: ${err}`);
         });
         sf.queryMaxRounds();
     }
@@ -199,7 +197,7 @@ function ensureAuthenticated(req, res, next) {
  */
 app.get('/csgoapi/login',
     passport.authenticate('steam'),
-        (req, res) => {
+        () => {
             // The request will be redirected to Steam for authentication, so
             // this function will not be called.
         }
@@ -229,11 +227,18 @@ app.get('/csgoapi/login/return',
  */
 app.get('/csgoapi/logout', (req, res) => {
     logger.http({
-        'user': `${steamID64}`,
+        'user': `${req.user.identifier}`,
         'message': 'logged out'
     });
-    req.logout();
-    res.redirect(cfg.redirectPage);
+    req.logout((err) => {
+        if (err) {
+            logger.warn({
+                'user': `${req.user.identifier}`,
+                'message': `logout failed: ${err}`
+            });
+        }
+        res.redirect(cfg.redirectPage);
+    }); 
 });
 
 /**
@@ -292,25 +297,27 @@ if (cfg.httpAuth) {
 }
 //--------------------- END Basic authentication --------------------------//
 
+let server;
 if (cfg.useHttps) {
-    var server = http.createServer(httpsCredentials, app);
+    server = http.createServer(httpsCredentials, app);
 } else {
-    var server = http.createServer(app);
+    server = http.createServer(app);
 }
 server.listen(cfg.apiPort);
 
 //------------------------------- Log receiver ----------------------------//
-logreceive = express();
+var logreceive = express();
 logreceive.use(express.text({ limit: "50mb" }));
 
+let logserver;
 if (cfg.useHttps) {
-    loghttp = require('http');
+    let loghttp = require('http');
     logserver = loghttp.createServer(logreceive);
 } else {
     logserver = http.createServer(logreceive);
 }
 
-logroute = require('./modules/logreceive.js');
+const logroute = require('./modules/logreceive.js');
 logreceive.use('/', logroute);
 
 logserver.listen(cfg.logPort, () => {
@@ -320,8 +327,19 @@ logserver.listen(cfg.logPort, () => {
 
 /*----------------- WebSockets Code -------------------*/
 if (cfg.webSockets) {
-    const wssServer = http.createServer(httpsCredentials);
+    let wssServer
+    if (cfg.useHttps) {
+        wssServer = http.createServer(httpsCredentials);
+    } else {
+        wssServer = http.createServer();
+    }
     const wss = new webSocket.Server({ server: wssServer });
+
+    wssServer.listen(cfg.socketPort, () => {
+        let host = cfg.host;
+        logger.verbose(host);
+    });
+
 
     /**
      * Websocket to send data updates to a webClient.
@@ -389,17 +407,7 @@ if (cfg.webSockets) {
             serverInfo.serverInfoChanged.removeListener('change', sendUpdate);
             controlEmitter.removeListener('exec', sendControlNotification);
             controlEmitter.removeListener('progress', reportProgress);
+            logger.info(`websocket closed with code ${code}. Reason: ${reason}`);
         });
-    });
-
-    wssServer.listen(cfg.socketPort, () => {
-        let host = cfg.host;
-        logger.verbose(host);
-        
-        if (cfg.useHttps) {
-            const ws = new webSocket(`wss://${host}:${wssServer.address().port}`);
-        } else {
-            const ws = new webSocket(`ws://${host}:${wssServer.address().port}`);
-        }
     });
 }

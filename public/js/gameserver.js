@@ -14,8 +14,6 @@ var titles = {
     'mapchange': 'Changing map',
     'pause': 'Pausing/Unpausing match'
 }
-var running = false;
-var authenticated = false;
 
 // Redirect to login page.
 function doLogin() {
@@ -51,7 +49,7 @@ function loadMaplist() {
 // Setup the Elements according to server status.
 function setupPage() {
     $('#popupCaption').text('Querying Server');
-    getPromise = (path) => {
+    let getPromise = (path) => {
         return Promise.resolve(sendGet(`${address}/${path}`));
     }
 
@@ -72,13 +70,13 @@ function setupPage() {
                         }
                     });
                 }
-            }).catch((error) => {
+            }).catch(() => {
                 setupServerStopped();
             });
         } else {
             setupNotLoggedIn();
         }
-    }).catch((error) => {
+    }).catch(() => {
         setupNotLoggedIn();
     });
 
@@ -128,11 +126,11 @@ function setupServerStopped() {
 }
 
 function clickButton(aButton) {
-    action = aButton.value.toLowerCase();
+    let action = aButton.value.toLowerCase();
     $('#popupCaption').text(`${titles[action]}`);
     $('#popupText').text('Moment bitte!');
     $('#container-popup').css('display', 'flex');
-    startMap = document.getElementById('mapAuswahl').value;
+    let startMap = document.getElementById('mapAuswahl').value;
 
     sendGet(`${apiPath}/control/${action}`, `startmap=${startMap}`).done((data) => {
         if (socket.readyState != 1) { // if websocket not connected
@@ -192,8 +190,9 @@ function getMaps() {
         maplist.forEach((map) => {
             if ('content' in document.createElement('template')) {
                 var mapDiv = document.querySelector('#maptemplate');
-                mapDiv.content.querySelector('.mapname').textContent = map.name;
+                mapDiv.content.querySelector('.mapname').textContent = map.title;
                 mapDiv.content.querySelector('.mapimg').setAttribute("src", map.previewLink);
+                mapDiv.content.querySelector('.map').setAttribute("id", map.workshopID);
                 $('#mapSelector').append(document.importNode(mapDiv.content, true));
             } else {
                 let alttext = createElement('h2');
@@ -225,8 +224,8 @@ function showPlay(event) {
 function changeMap(event) {
     let map = event.currentTarget.firstElementChild.textContent;
     $('#mapSelector').hide('fast');
-    $('#popupCaption').text(titles['mapchange']);
-    $('#container-popup').css('display', 'flex');
+    //$('#popupCaption').text(titles['mapchange']);
+    //$('#container-popup').css('display', 'flex');
     sendGet(`${apiPath}/control/changemap`, `map=${map}`, (data) => {
         if (data.success) {
             $('#popupText').html(`Changing map to ${map}`);
@@ -234,7 +233,6 @@ function changeMap(event) {
             $('#popupText').html(`Mapchange failed!`);
             window.setTimeout(() => {
                 $('#container-popup').css('display', 'none');
-                window.location.href = './notauth.htm';
             }, 2000);
 
         }
@@ -290,7 +288,6 @@ function authenticate(caller) {
 }
 
 function kill(caller) {
-
     sendGet(`${apiPath}/control/kill`).done((data) => {
         window.location.href = './gameserver.htm';
     }).fail((error) => {

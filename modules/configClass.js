@@ -2,130 +2,154 @@
  * Config class for CSGO Server API
  */
 class config {
+    #userOptions = require('../config.js');
+    #screenCommand;
+    #csgoCommand;
+    #serverTokenCommand;
+    #localIp;
+
     constructor() {
-        this._userOptions = require('../config.js');
-
-        this._screenCommand = `${this._userOptions.screen} -L -Logfile ${this._userOptions.screenLog} -dmS ${this._userOptions.screenName}`;
-        this._csgoCommand = `${this._userOptions.csgoDir}game/bin/linuxsteamrt64/cs2 -dedicated`;
-        this._serverTokenCommand = `+sv_setsteamaccount ${this._userOptions.serverToken}`;
-        this._localIp = '';
+        this.#screenCommand = `${this.#userOptions.screen} -L -Logfile ${this.#userOptions.screenLog} -dmS ${this.#userOptions.screenName}`;
+        this.#csgoCommand = `${this.#userOptions.csgoDir}game/bin/linuxsteamrt64/cs2 -dedicated`;
+        this.#serverTokenCommand = `+sv_setsteamaccount ${this.#userOptions.serverToken}`;
+        this.#localIp = '';
     }
-    get _csgoArgs() {
-        return `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this._localIp}:${this.logPort}/log" ${this._userOptions.csgoOptionalArgs}`;
+    get #csgoArgs() {
+        let args = `-console -usercon -ip 0.0.0.0 +sv_logfile 1 -serverlogging +logaddress_add_http "http://${this.#localIp}:${this.#userOptions.logPort}/log" ${this.#userOptions.csgoOptionalArgs}`;
+        if (this.#userOptions.workshopCollection != '') {
+            args += ` +host_workshop_collection ${this.#userOptions.workshopCollection}`;
+        }
+        return args;
     }
 
+    get apiToken() {
+        return this.#userOptions.apiToken;
+    }
     get rconPass() {
-        return this._userOptions.rconPass;
+        return this.#userOptions.rconPass;
     }
 
     get admins() {
-        return this._userOptions.admins;
+        return this.#userOptions.admins;
+    }
+
+    get workshopCollection() {
+        return this.#userOptions.workshopCollection;
+    }
+    set workshopCollection(id) {
+        this.#userOptions.workshopCollection = id;
+    }
+    get workshopMaps() {
+        return this.#userOptions.workshopMaps;
+    }
+    set workshopMaps(maps) {
+        this.#userOptions.workshopMaps = maps;
     }
 
     get redirectPage() {
-        if (this._userOptions.redirectPage) {
-            return this._userOptions.redirectPage;
+        if (this.#userOptions.redirectPage) {
+            return this.#userOptions.redirectPage;
         } else {
             return ('/gameserver.htm');
         }
     }
 
     get loginValidity() {
-        return this._userOptions.loginValidity * 60000;
+        return this.#userOptions.loginValidity * 60000;
     }
 
     get httpAuth() {
-        return this._userOptions.httpAuth;
+        return this.#userOptions.httpAuth;
     }
     get httpUser() {
-        return this._userOptions.httpUser;
+        return this.#userOptions.httpUser;
     }
 
     get iface() {
-        return this._userOptions.iface;
+        return this.#userOptions.iface;
     }
 
     get localIp() {
-        return this._localIp;
+        return this.#localIp;
     }
     set localIp(ip) {
-        this._localIp = ip;
+        this.#localIp = ip;
     }
     get host() {
-        if (this._userOptions.host != '') {
-            return this._userOptions.host;
+        if (this.#userOptions.host != '' && this.#userOptions.useHttps) {
+            return this.#userOptions.host;
         } else {
-            return this._localIp
+            return this.#localIp
         }
     }
 
     get apiPort() {
-        return this._userOptions.apiPort;
+        return this.#userOptions.apiPort;
     }
     get socketPort() {
-        return this._userOptions.socketPort;
+        return this.#userOptions.socketPort;
     }
     get logPort() {
-        return this._userOptions.logPort;
+        return this.#userOptions.logPort;
     }
 
     get serverCommandline() {
-        let command = `${this._screenCommand} ${this._csgoCommand} ${this._csgoArgs}`;
+        let command = `${this.#screenCommand} ${this.#csgoCommand} ${this.#csgoArgs}`;
         if (this._csgoToken != '') {
-            command = `${command} ${this._serverTokenCommand}`;
+            command = `${command} ${this.#serverTokenCommand}`;
         }
         return command;
     }
     get steamCommand() {
-        return this._userOptions.steamExe
+        return this.#userOptions.steamExe
     }
     get updateScript() {
-        if (this._userOptions.updateScript != ''){
-            return this._userOptions.updateScript;
+        if (this.#userOptions.updateScript != ''){
+            return this.#userOptions.updateScript;
         } else {
-            return `${this._userOptions.csgoDir}update_cs2.txt`;
+            return `${this.#userOptions.csgoDir}update_cs2.txt`;
         }
     }
 
     get webSockets() {
-        return this._userOptions.webSockets;
+        return this.#userOptions.webSockets;
     }
     get useHttps() {
-        return this._userOptions.useHttps;
+        return this.#userOptions.useHttps;
     }
     get scheme() {
-        return (this._userOptions.useHttps ? 'https' : 'http');
+        return (this.#userOptions.useHttps ? 'https' : 'http');
     }
     get httpsCertificate() {
-        return this._userOptions.httpsCertificate;
+        return this.#userOptions.httpsCertificate;
     }
     get httpsPrivateKey() {
-        return this._userOptions.httpsPrivateKey;
+        return this.#userOptions.httpsPrivateKey;
     }
     get httpsCa() {
-        return this._userOptions.httpsCa;
+        return this.#userOptions.httpsCa;
     }
 
     get corsOrigin() {
-        return this._userOptions.corsOrigin;
+        return this.#userOptions.corsOrigin;
     }
     get sessionSecret() {
-        return this._userOptions.sessionSecret;
+        return this.#userOptions.sessionSecret;
     }
 
     script(type) {
-        return this._userOptions[`${type}Script`];
+        return this.#userOptions[`${type}Script`];
     }
 
     get logFile() {
-        return this._userOptions.logFile;
+        return this.#userOptions.logFile;
     }
     get logLevel() {
-        return this._userOptions.logLevel;
+        return this.#userOptions.logLevel;
     }
     get logDays() {
-        return this._userOptions.logDays;
+        return this.#userOptions.logDays;
     }
-};
+}
 
 module.exports = new config();

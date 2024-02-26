@@ -6,7 +6,7 @@ var cfg = require('./configClass.js');
 var serverInfo = require('./serverInfo.js');
 var controlEmitter = require('./controlEmitter.js');
 
-rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
+const rconQ = new queue({ "autostart": true, "timeout": 500, "concurrency": 1 });
 
 /**
  * Authenticate rcon with server
@@ -71,99 +71,212 @@ function authenticate() {
  * Get available maps from server and store them in serverInfo
  * @return {Promise<JSON-string>} - Promise object that yields the result of reload.
  */
-function reloadMaplist() {
-    return new Promise((resolve, reject) => {
-
-        function _sendApiRequest(_mapName, mapId) {
+async function reloadMaplist() {
+    return new Promise( async (resolve, reject) => {
+        function getWorkshopCollection(id) {
             return new Promise((resolve, reject) => {
-                let workshopInfo = '';
-
-                const options = {
-                    hostname: 'api.steampowered.com',
-                    path: '/ISteamRemoteStorage/GetPublishedFileDetails/v1/',
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                };
-                var steamApiRequest = https.request(options, (res) => {
+                https.get(`https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}&publishedfileids[0]=${id}&includechildren=true`, (res) => {
                     let resData = '';
                     res.on('data', (dataChunk) => {
                         resData += dataChunk;
                     });
                     res.on('end', () => {
                         try {
-                            resJSON = JSON.parse(resData);
-                            let previewLink = resJSON.response.publishedfiledetails[0].preview_url;
-                            let title = resJSON.response.publishedfiledetails[0].title;
-                            let workshopID = resJSON.response.publishedfiledetails[0].publishedfileid;
-                            let description = resJSON.response.publishedfiledetails[0].description;
-                            let tags = resJSON.response.publishedfiledetails[0].tags;
-                            resolve({ "name": _mapName, "title": title, "workshopID": workshopID, "description": description, "previewLink": previewLink, "tags": tags });
+                            let colMaps = []
+                            let resJson = JSON.parse(resData);
+                            resJson.response.publishedfiledetails[0].children.forEach((colMap) => {
+                                colMaps.push(colMap.publishedfileid);
+                            })
+                            resolve(colMaps);
                         } catch (e) {
-                            reject({ "name": _mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
+                            reject(e);
                         }
                     });
+                }).on('error', (error) => {
+                    logger.warn(`Steam Workshop Collection request failed: ${error}`);
+                    reject(error);
                 });
-
-                steamApiRequest.on('error', error => {
-                    logger.warn(`steamApiRequest not successful: ${error}`);
-                    reject({ "name": _mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
-                });
-
-                steamApiRequest.write(`itemcount=1&publishedfileids%5B0%5D=${mapId}`);
-                steamApiRequest.end();
             });
         }
 
-        // Temporarily work with a static maplist.
-        executeRcon('maps *').then((answer) => {
-            const officialMaps = require('../OfficialMaps.json');
-            let re = /\(fs\) (\S+).bsp/g;
-            let maplist = [];
-            let mapdetails = [];
-            // let mapsArray = getMatches(answer, re, 1);
-            let mapsArray = ['cs_italy', 'cs_office', 'de_ancient', 'de_anubis',
-                             'de_dust2', 'de_inferno', 'de_mirage', 'de_nuke',
-                             'de_overpass', 'de_vertigo']
-            let promises = [];
-            mapsArray.forEach((mapString) => {
-                let mapName = cutMapName(mapString);
-                maplist.push(mapName);
-                if (mapString.includes('workshop/')) {
-                    let mapIdRegex = /workshop\/(\d+)\//;
-                    let workshopId = mapString.match(mapIdRegex)[1];
-                    promises.push(_sendApiRequest(mapName, workshopId));
-                } else {
-                    let workshopId = officialMaps[mapName];
-                    if (workshopId != undefined) {
-                        promises.push(_sendApiRequest(mapName, workshopId));
-                    } else {
-                        mapdetails.push({ "name": mapName, "title": "", "workshopID": "", "description": "", "previewLink": "", "tags": "" });
-                    }
-                }
-            });
-            Promise.allSettled(promises).then((results) => {
-                results.forEach((result) => {
-                    mapdetails.push(result.value)
-                })
+        function getMapDetails(mapIDs, official) {
+            return new Promise((resolve, reject) => {
+                let idString = '';
+                let i = 0;
+                mapIDs.forEach( (mapId) => {
+                    idString += `&publishedfileids[${i}]=${mapId}`;
+                    i++;
+                });
 
-                mapdetails.sort((a, b) => a.name.localeCompare(b.name));
-                maplist.sort();
-                // Only return, if list has at least one item.
-                logger.debug(`Maps found: ${maplist.length}`);
-                if (maplist.length > 0) {
-                    logger.debug('Saving Maplist to ServerInfo');
-                    serverInfo.mapsAvail = maplist;
-                    serverInfo.mapsDetails = mapdetails;
-                    resolve({ "success": true });
-                } else {
-                    reject({ "success": false });
-                }
+                https.get(`https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}${idString}&appid=730`, (res) => {
+                    let resData = '';
+                    let returnDetails = [];
+                    res.on('data', (dataChunk) => {
+                        resData += dataChunk;
+                    });
+                    res.on('end', () => {
+                        if (res.statusCode != 200) {
+                            logger.warn(`getMapDetails api call failed. Status = ${res.statusCode}`);
+                            reject([]);
+                        } else {
+                            try {
+                                let resJson = JSON.parse(resData);
+                                resJson.response.publishedfiledetails.forEach( details => {
+                                    let _mapName = "";
+                                    if (details.filename != "") {
+                                        let re = /\S+\/(\S+).bsp/;
+                                        let matches = details.filename.match(re);
+                                        _mapName = matches[1];
+                                    }
+                                    returnDetails.push({ 
+                                        "name": _mapName, 
+                                        "official": official, 
+                                        "title": details.title, 
+                                        "workshopID": details.publishedfileid.toString(), 
+                                        "description": details.description, 
+                                        "previewLink": details.preview_url, 
+                                        "tags": details.tags })
+                                });
+                                resolve(returnDetails);
+                            } catch (e) {
+                                logger.warn(`Reading map details failed: ${e}`);
+                                reject([]);
+                            }
+                        }
+                    });
+                }).on('error', (error) => {
+                    logger.warn(`Steam Workshop Maps Request failed: ${error}`);
+                    reject(error);
+                });
+                
             });
-        }).catch((err) => {
-            logger.warn(`Error executing maps rcon: ${err.message}`);
-            reject({ "success": false });
-        });
+        }
+
+        function getWorkshopCollectionMapsFromServer() {
+            return new Promise((resolve, reject) => {
+                executeRcon('ds_workshop_listmaps ').then((response) => {
+                    let mapArray = response.split(/\r?\n/);
+                    let details = [];
+                    mapArray.forEach((value) => {
+                        mapdetails.push({
+                            "name": value,
+                            "official": false,
+                            "title": value,
+                            "workshopID": "",
+                            "description": "",
+                            "previewLink": "",
+                            "tags": [],
+                        });
+                    });
+                    
+                    resolve(details);
+                }).catch((err) => {
+                    logger.warn(`Could not get workshop collection maps from server: ${err}`);
+                    reject(err);
+                });
+            });
+        }
+
+
+
+        // Available maps will be built from OfficialMaps.json static file,
+        // workshop collection and mapsfrom config.
+        let officialMapIds = [];
+        let workshopMapIds = [];
+        let mapdetails = [];
+
+        let omJson = require('../OfficialMaps.json');
+
+        omJson.forEach( (om) => {
+            officialMapIds.push(om.id);
+        })
+
+        logger.debug("getting official maps");
+        
+        try {
+            mapdetails = await getMapDetails(officialMapIds, true);
+        } catch(error) {
+            logger.warn(`Getting official maps details failed: ${error}`);
+            logger.warn('Falling back to name and ID only');
+            // As fallback use name and id from local file.
+            let alternateDetails = [];
+            omJson.forEach( (map) => {
+                alternateDetails.push( {
+                    "name": map.name,
+                    "official": true,
+                    "title": map.name,
+                    "workshopID": map.id,
+                    "description": "",
+                    "previewLink": "",
+                    "tags": [],
+                });
+            });
+            mapdetails = alternateDetails;
+        }
+
+        if (cfg.workshopCollection != '') {
+            logger.debug("getting collection ids");
+            try {
+                workshopMapIds = await getWorkshopCollection(cfg.workshopCollection);
+            } catch (error) {
+                logger.warn(`Getting Workshop map IDs failed: ${error}
+Trying to get names from server.`);
+                // As a fallback try to get workshop maps from server via rcon command.
+                try {
+                    mapdetails.push(...await getWorkshopCollectionMapsFromServer());
+                } catch (err) {
+                    logger.warn(`Loading workshop maps from server failed: ${err}
+Workshop maps not available.`);
+                }
+            }
+        }
+        workshopMapIds.push(...cfg.workshopMaps);
+
+        if(workshopMapIds.length > 0) {
+            logger.debug("getting workshop maps details");
+            try {
+                mapdetails.push(...await getMapDetails(workshopMapIds, false));
+            } catch(error) {
+                logger.warn(`Getting Workshop maps details failed: ${error}`);
+                // As a fallback try to get workshop maps from server via rcon command.
+                try {
+                    mapdetails.push(...await getWorkshopCollectionMapsFromServer());
+                } catch (err) {
+                    logger.warn(`Loading workshop maps from server failed: ${err}
+Workshop maps not available.`);
+                }
+            }
+        }
+        if (mapdetails.length > 1) {
+            mapdetails.sort((a, b) => a.title.localeCompare(b.title));
+        }
+
+        serverInfo.mapsDetails = mapdetails;
+        // TODO: Check if this is still needed.
+        // serverInfo.mapsAvail = maplist;
+        if(mapdetails.length > 0) {
+            logger.info('Maps reloaded');
+            resolve({ "success": true });
+        } else {
+            logger.warn('Update maps failed: Maplist is empty.');
+            reject( {"success": false});
+        }
     });
+}
+
+/**
+ * Checks if a map is available on the server or not
+ * @param  {string/int}           map - a filename, title or workshopID
+ * @return {boolean}          if the map was found in the details.
+ */
+function getMap(mapToFind) {
+    let returnMap = undefined;
+    serverInfo.mapsDetails.forEach( (map) => {
+        if (map.workshopID == mapToFind || map.name == mapToFind || map.title == mapToFind) {
+            returnMap = map;
+        } 
+    })
+    return returnMap;
 }
 
 /**
@@ -189,31 +302,14 @@ function executeRcon(message) {
 
 /*------------------------- Helper Functions ----------------------------*/
 /**
- * Extracts all matches for a regex.
- * @param {string} string - String to search.
- * @param {regex} regex   - Regex to execute on the string.
- * @param {integer} index - Optional index which capturing group should be retreived.
- * @returns {string[]} matches - Array holaction the found matches.
- */
-function getMatches(string, regex, index) {
-    index || (index = 1); // default to the first capturing group
-    var matches = [];
-    var match;
-    while (match = regex.exec(string)) {
-        matches.push(match[index]);
-    }
-    return matches;
-}
-
-/**
  * Cuts the bare map-name from the various representations in the servers responses.
  * @param {string} mapstring   - The response of mapname(s) from rcon.
  * @returns {string} mapstring -  The mapname without workshop path or .bsp
  */
 function cutMapName(mapstring) {
     if (mapstring.search('workshop') != -1) {
-        re = /(\w+)/g;
-        matches = mapstring.match(re);
+        let re = /(\w+)/g;
+        let matches = mapstring.match(re);
         mapstring = matches[2];
     }
     if (mapstring.search(".bsp") != -1) {
@@ -237,4 +333,4 @@ function queryMaxRounds() {
     });
 }
 
-module.exports = { authenticate, reloadMaplist, executeRcon, cutMapName, queryMaxRounds };
+module.exports = { authenticate, reloadMaplist, getMap, executeRcon, cutMapName, queryMaxRounds };

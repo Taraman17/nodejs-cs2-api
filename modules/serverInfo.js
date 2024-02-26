@@ -1,7 +1,35 @@
 const events = require('events');
+const logger = require('./logger');
 
 class serverInfo {
-    constructor(options = {}) {
+    #serverState;
+
+    #map = '';
+    #mapsAvail = [];
+    #mapsDetails = [
+        //{ 'name': '',
+        //  'official': true/false,
+        //  'title': '',
+        //  'workshopID': '',
+        //  'description': '',
+        //  'previewLink': '',
+        //  'tags': [{ "tag": "" }] }
+    ];
+    #mapFilterType;
+    #mapFilters;
+    #maxRounds = 0
+    #pause = false;
+
+    #players = [
+        //{ 'name': '',
+        //  'steamID': '',
+        //  'team': '',
+        //  'kills': 0,
+        //  'deaths': 0 }
+    ];
+    #score;
+
+    constructor() {
         /**
          * Stores the state of the controlled server-instance.
          * @typedef  serverState
@@ -12,7 +40,7 @@ class serverInfo {
          */
 
         /** @type {serverState} */
-        this._serverState = {
+        this.#serverState = {
             'operationPending': 'none',
             'serverRunning': false,
             'serverRcon': undefined,
@@ -20,29 +48,12 @@ class serverInfo {
         }
 
         // data section
-        this._map = '';
-        this._mapsAvail = []
-        this._mapsDetails = [
-            //{ 'name': '',
-            //  'title': '',
-            //  'workshopID': '',
-            //  'description': '',
-            //  'previewLink': '',
-            //  'tags': [{ "tag": "" }] }
-        ];
-        this._mapFilterType = 'exclude'; // 'include / exclude',
-        this._mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
-        this._maxRounds = 0;
-        this._pause = false // Is the match paused?
-        this._score = {
+        this.#mapFilterType = 'exclude'; // 'include / exclude',
+        this.#mapFilters = ['ar_', 'dz_', 'gd_', 'lobby_', 'training1']; // [ {string} ]
+        this.#score = {
             'T': 0,
             'C': 0
         };
-        this._players = [
-            //{ 'name': '',
-            //  'steamID': '',
-            //  'team': '' }
-        ];
 
         // emitter to notify of changes
         this.serverInfoChanged = new events.EventEmitter();
@@ -50,200 +61,223 @@ class serverInfo {
 
     // getter / setter
     get serverState() {
-        return this._serverState;
+        return this.#serverState;
     }
     set serverState(newVal) {
-        this._serverState[expr] = newVal;
+        this.#serverState = newVal;
     }
 
     get map() {
-        return this._map;
+        return this.#map;
     }
     set map(newMap) {
-        this._map = newMap;
+        this.#map = newMap;
         this.serverInfoChanged.emit('change');
     }
 
     get mapsAvail() {
-        return this._mapsAvail;
+        return this.#mapsAvail;
     }
     set mapsAvail(newMapsAvail) {
-        this._mapsAvail = newMapsAvail;
+        this.#mapsAvail = newMapsAvail;
         this.serverInfoChanged.emit('change');
     }
     mapList() {
-        if (this._mapFilters.length > 0) {
-            return this._mapsAvail.filter((map) => {
+        if (this.#mapFilters.length > 0) {
+            return this.#mapsAvail.filter((map) => {
                 let found = false;
-                this._mapFilters.forEach((filter) => {
+                this.#mapFilters.forEach((filter) => {
                     if (map.includes(filter)) {
                         found = true;
                     }
                 });
-                if (this._mapFilterType === 'include') {
+                if (this.#mapFilterType === 'include') {
                     return found;
                 } else {
                     return !found;
                 }
             });
         } else {
-            return this._mapsAvail;
+            return this.#mapsAvail;
         }
     }
 
     get mapsDetails() {
-        return this._mapsAvail;
+        return this.#mapsDetails;
     }
     set mapsDetails(newMapsDetails) {
-        this._mapsDetails = newMapsDetails;
+        this.#mapsDetails = newMapsDetails;
         this.serverInfoChanged.emit('change');
     }
     mapDetails() {
-        if (this._mapFilters.length > 0) {
-            return this._mapsDetails.filter((map) => {
+        if (this.#mapFilters.length > 0) {
+            return this.#mapsDetails.filter((map) => {
                 let found = false;
                 if (map.name) { // sometimes map.name is undefined for some reason.
-                    this._mapFilters.forEach((filter) => {
+                    this.#mapFilters.forEach((filter) => {
                         if (map.name.includes(filter)) {
                             found = true;
                         }
                     });
                 }
-                if (this._mapFilterType === 'include') {
+                if (this.#mapFilterType === 'include') {
                     return found;
                 } else {
                     return !found;
                 }
             });
         } else {
-            return this._mapsDetails;
+            return this.#mapsDetails;
         }
     }
 
     // Map Filter Methods
     get mapFilterType() {
-        return this._mapFilterType;
+        return this.#mapFilterType;
     }
     set mapFilterType(type) {
         if (type === 'include' || type === 'exclude') {
-            this._mapFilterType = type;
+            this.#mapFilterType = type;
             this.serverInfoChanged.emit('change');
         }
     }
     get mapFilters() {
-        return this._mapFilters;
+        return this.#mapFilters;
     }
     mapFilterAdd(filter) {
-        this._mapFilters.push(filter);
+        this.#mapFilters.push(filter);
         this.serverInfoChanged.emit('change');
     }
     mapFilterRemove(itemToRemove) {
-        if (this._mapFilters.length == 0) {
+        if (this.#mapFilters.length == 0) {
             return (0);
         }
-        if (typeof itemToRemove === 'number' && this._mapFilters.length > parseInt(itemToRemove)) {
+        if (typeof itemToRemove === 'number' && this.#mapFilters.length > parseInt(itemToRemove)) {
             console.log("removing number");
-            this._mapFilters.splice(parseInt(itemToRemove), 1);
+            this.#mapFilters.splice(parseInt(itemToRemove), 1);
             this.serverInfoChanged.emit('change');
         } else {
-            let newFilters = this._mapFilters.filter((currentItem) => {
+            let newFilters = this.#mapFilters.filter((currentItem) => {
                 return (currentItem != itemToRemove);
             });
-            this._mapFilters = newFilters;
+            this.#mapFilters = newFilters;
             this.serverInfoChanged.emit('change');
         }
-        return (this._mapFilters.length);
+        return (this.#mapFilters.length);
     }
     mapFilterReset() {
-        this._mapFilterType = 'exclude';
-        this._mapFilters = [];
+        this.#mapFilterType = 'exclude';
+        this.#mapFilters = [];
         this.serverInfoChanged.emit('change');
     }
 
     get maxRounds() {
-        return this._maxRounds;
+        return this.#maxRounds;
     }
     set maxRounds(newMaxRounds) {
-        this._maxRounds = newMaxRounds;
-        this.serverInfoChanged.emit('change');
+        if (!Number.isNaN(newMaxRounds)) {
+            this.#maxRounds = newMaxRounds;
+            this.serverInfoChanged.emit('change');
+        } else {
+            logger.warn('maxRounds must be a number.');
+        }
     }
 
     get score() {
-            return this._score;
+            return this.#score;
         }
         // Accepts array with team (T or C) and score.
     set score(newScoreArray) {
-        this._score[newScoreArray[1]] = parseInt(newScoreArray[2]);
+        this.#score[newScoreArray[1]] = parseInt(newScoreArray[2]);
         this.serverInfoChanged.emit('change');
     }
 
     get pause() {
-        return this._pause;    
+        return this.#pause;    
     }
     set pause(state) {
-        this._pause = state
-        this.serverInfoChanged.emit('change');
+        if (typeof(state) == 'boolean') {
+            this.#pause = state
+            this.serverInfoChanged.emit('change');
+        } else {
+            logger.warn('Invalid pause state - must be of type Boolean');
+        }
     }
 
     get players() {
-        return this._players;
+        return this.#players;
     }
     addPlayer(newPlayer) {
-        newPlayer.team = 'U';
-        this._players.push(newPlayer);
+        if (this.#players.find(x => x.steamID === newPlayer.steamID) != undefined) {
+            this.#players.find(x => x.steamID === newPlayer.steamID).disconnected = false
+        } else {
+            newPlayer.team = 'U';
+            newPlayer.kills = 0;
+            newPlayer.deaths = 0;
+            newPlayer.disconnected = false;
+            this.#players.push(newPlayer);
+        }
         this.serverInfoChanged.emit('change');
     }
-    assignPlayer(steamID, team) {
-        for (let i = 0; i < this._players.length; i++) {
-            if (this._players[i].steamID == steamID) {
-                this._players[i].team = team.substr(0, 1);
-                i = this._players.length;
-            }
+    assignPlayer(name, steamID, team) {
+        if (this.#players.find(x => x.steamID === steamID) == undefined ) {
+            this.addPlayer({'name': name, 'steamID': steamID });
         }
+        let player = this.#players.find(x => x.steamID === steamID);
+        player.team = team.substr(0, 1);
         this.serverInfoChanged.emit('change');
     }
     removePlayer(steamID) {
-        for (let i = 0; i < this._players.length; i++) {
-            if (this._players[i].steamID == steamID) {
-                this._players.splice(i, 1);
-                i = this._players.length;
-            }
-        }
+        this.#players.find(x => x.steamID === steamID).disconnected = true;
+        // this.#players.splice(this.#players.findIndex(x => x.steamID === steamID), 1);
         this.serverInfoChanged.emit('change');
     }
     clearPlayers() {
-        this._players = [];
+        this.#players = [];
+        this.serverInfoChanged.emit('change');
+    }
+    recordKill(killer, victim) {
+        let killPlayer = this.#players.find(x => x.steamID === killer);
+        if (killPlayer != undefined)
+            killPlayer.kills += 1;
+        let victimPlayer = this.#players.find(x => x.steamID === victim);
+        if (victimPlayer != undefined)
+            victimPlayer.deaths += 1;
         this.serverInfoChanged.emit('change');
     }
 
     // Methods
     getAll() {
         return {
-            'map': this._map,
+            'map': this.#map,
             'mapsAvail': this.mapList(),
             'mapsDetails': this.mapDetails(),
-            'maxRounds': this._maxRounds,
-            'score': this._score,
-            'pause': this._pause,
-            'players': this._players
+            'maxRounds': this.#maxRounds,
+            'score': this.#score,
+            'pause': this.#pause,
+            'players': this.#players
         };
     }
 
     newMatch() {
-        this._score.C = 0;
-        this._score.T = 0;
+        this.#score.C = 0;
+        this.#score.T = 0;
+        for (let i in this.#players) {
+            this.#players[i].kills = 0;
+            this.#players[i].deaths = 0;
+        }
         this.serverInfoChanged.emit('change');
     }
     reset() {
         // Method to be called on server quit.
-        this._map = '';
-        this._mapsAvail = [];
-        this._mapsDetails = [];
-        this._maxRounds = 0;
-        this._pause = false;
+        this.#map = '';
+        this.#mapsAvail = [];
+        this.#mapsDetails = [];
+        this.#maxRounds = 0;
+        this.#pause = false;
         this.clearPlayers();
         this.newMatch();
     }
-};
+}
 
 module.exports = new serverInfo();
