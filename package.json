@@ -19,7 +19,8 @@
     "version": "2.0.0",
     "main": "serverControl.js",
     "directories": {
-        "example": "example"
+        "public": "public",
+        "modules": "modules"
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
