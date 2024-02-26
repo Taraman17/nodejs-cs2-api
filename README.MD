@@ -24,7 +24,7 @@ I strongly adivise to use secure connections to prevent possible man-in-the-midd
 ## Prerequisites
 - steam CLI
 - CS2 dedicated server
-- NodeJS 14.X or higher
+- NodeJS 16.X or higher
 - screen
 
 ## Install
@@ -47,6 +47,8 @@ sudo apt install screen
 ### API:
 - Edit the settings in config.js - at least the first 5. They are explained in the file.
 - The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}']).
+- To display map preview images, a steamAPI key is needed. See https://steamcommunity.com/dev/apikey how to get one.
+It must be copied to the respective config option. To learn more on how the map-handling works see [Maps TL;DR](https://github.com/Taraman17/nodejs-cs2-api/blob/master/MAPS.MD)
 
 ### Server update script
 If you want to use the update function, you need to provide a script to use with the steamcmd.
@@ -69,11 +71,11 @@ Start the script with
 ```console
 node serverControl.js
 ```
-In your brower open http://<yourIP>:8090/gameserver.htm
+In your brower open http://\<yourIP>:8090/gameserver.htm
 
 The API will detect a running server and connect to it.
 
-To start the API on boot and have it running in the background, I recommend [Forever](https://github.com/foreversd/forever)
+To start the API on boot and have it running in the background, I recommend [PM2](https://pm2.keymetrics.io/)
 
 ## Usage
 *NOTE: For API calls with basic http authentication see below.*
