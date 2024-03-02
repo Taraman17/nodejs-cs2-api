@@ -1,6 +1,6 @@
 # CS2 Server Control with a Nodejs-powered web-API (LINUX only)
 this API is used to start/stop/update a CS2 linux dedicated server and control it via rcon.
-The backend accepts RESTful api calls authenticated either via steamID or a configurable user with hppt authentication for stateless API calls.
+The backend accepts RESTful api calls authenticated either via steamID or a configurable user with http authentication for stateless API calls.
 A full featured example webinterface is provided to get a quick start on the application.
 
 ## Disclaimer
@@ -8,17 +8,12 @@ The use of this software is at your own risk.
 It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server.
 I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.
 
-## CS2 Beta Info
-### New in Beta.3:
-- Reworked the code, to make the initial configuration much easier.
-- Example Webinterface is now served via the app, so you don't need to configure a seperate webserver.
-- Made using websockets for data-transfer to Webinterface the standard.
-
-### This is a beta release for CS2. It has the following changes to previous functionality
+### This is the first release for CS2. It has the following changes to previous functionality
+- The Steam-Api calls for the map details now need an API-Token. See configuration section below for details.
 - Changed Log-reception to http logs, since UDP is not supported anymore in new server. Unnecessary library source-log-receiver removed.
-- Maplist loading is still bugged in CS2 Server - therefore working with a static Maplist.
-- Still working with the old CS_GO map-pictures, since the new ones are not yet available in the workshop
-- API calls are unchanged.
+- Maplist loading has changed to the worse, see [Maps TL;DR](https://github.com/Taraman17/nodejs-cs2-api/blob/master/MAPS.MD) for details how the API deals with it.
+- Changed API calls (non braking).
+  - mapchange can now be done with map-filename (without extension), workshop-id or map-title as argument. 
 - added API endpoints for pausing and resuming the match (/control/pause & /control/unpause). Status is tracked in serverInfo.pause (false/true).
 
 ## Prerequisites
@@ -71,9 +66,9 @@ Start the script with
 ```console
 node serverControl.js
 ```
-In your brower open http://\<yourIP>:8090/gameserver.htm
+In your browser open http://\<yourIP>:8090/gameserver.htm to see the example webinterface
 
-The API will detect a running server and connect to it.
+If the server is already running in a screen, the API will detect a running server and connect to it.
 
 To start the API on boot and have it running in the background, I recommend [PM2](https://pm2.keymetrics.io/)
 
@@ -118,7 +113,7 @@ The /control message will return a JSON-String.
 If run without startmap, server will be started with de_dust2.
 - stop -> stop the server with RCON 'quit': { "success": true/false }
 - kill -> use 'kill' command to shutdown the server, if RCON connection is not working: { "success": true/false }
-- changemap -> additional argument "map" (action=changemap&map=mapname): 
+- changemap -> additional argument "map" (action=changemap&map=mapfilename/workshopid/title): 
 - reloadmaplist -> reload the available maps on the server (action=reloadmaplist): { "success": true/false }
 
 If you do not use websockets, the answer will be sent after completion of the operation.
@@ -188,7 +183,7 @@ UpdateProgress looks as follows:
 { "type": "updateProgress", "payload": { "step": <string>, "progress": <int> } }
 ```
 ## Api calls with http authentication
-For stateless API-Calls via command line or other automatic tools the http basic authentication can be activated in the config with
+For stateless API-Calls via command line or other automatic tools the http basic authentication can be activated in the config with:
 ```
 "httpAuth": true,
 "httpUser": { "username": "", "password": "" },
@@ -202,12 +197,7 @@ The interface is:
 http://<your-servers-address>:<your-port>/csgoapi/http/v1.0/...
 ```
 
-## Example
-An example of a webinterface is available in the folder "example"
-It assumes, that you run it on the same domain as the API. If you want to change that, you can do so in js/gameserver.js (see comment in the file)
-To correctly load the maplist for server start, edit the respective line at the beginning of gameserver.js.
-The Webinterface works with and without websockets.
-
 ## Support
 If you have any questions, contact me.
+
 If you find any bugs or have feature requests, don't hesitate to open an issue.

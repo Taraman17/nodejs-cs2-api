@@ -2,6 +2,8 @@
  * @requires child_process
  * @requires node-pty
  * @requires express
+ * @requires express.Router
+ * @requires ./logger.js
  * @requires ./config.js
  * @requires ./serverInfo.js
  * @requires ./controlEmitter.js
