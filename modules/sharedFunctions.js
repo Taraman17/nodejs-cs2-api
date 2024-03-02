@@ -117,7 +117,7 @@ async function reloadMaplist() {
                     res.on('end', () => {
                         if (res.statusCode != 200) {
                             logger.warn(`getMapDetails api call failed. Status = ${res.statusCode}`);
-                            reject([]);
+                            reject('Api call was unsuccessful');
                         } else {
                             try {
                                 let resJson = JSON.parse(resData);
@@ -140,7 +140,7 @@ async function reloadMaplist() {
                                 resolve(returnDetails);
                             } catch (e) {
                                 logger.warn(`Reading map details failed: ${e}`);
-                                reject([]);
+                                reject('Could not read map details from api response');
                             }
                         }
                     });
