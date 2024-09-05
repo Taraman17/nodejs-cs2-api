@@ -122,20 +122,24 @@ async function reloadMaplist() {
                             try {
                                 let resJson = JSON.parse(resData);
                                 resJson.response.publishedfiledetails.forEach( details => {
-                                    let _mapName = "";
-                                    if (details.filename != "") {
-                                        let re = /\S+\/(\S+).bsp/;
-                                        let matches = details.filename.match(re);
-                                        _mapName = matches[1];
+                                    if (details.result == 1) {
+                                        let _mapName = "";
+                                        if (details.filename != "") {
+                                            let re = /\S+\/(\S+).bsp/;
+                                            let matches = details.filename.match(re);
+                                            _mapName = matches[1];
+                                        }
+                                        returnDetails.push({ 
+                                            "name": _mapName, 
+                                            "official": official, 
+                                            "title": details.title, 
+                                            "workshopID": details.publishedfileid.toString(), 
+                                            "description": details.description, 
+                                            "previewLink": details.preview_url, 
+                                            "tags": details.tags });
+                                    } else {
+                                        logger.warn(`No details for map ${details.publishedfileid.toString()}. Query Result: ${details.result.toString()}`);
                                     }
-                                    returnDetails.push({ 
-                                        "name": _mapName, 
-                                        "official": official, 
-                                        "title": details.title, 
-                                        "workshopID": details.publishedfileid.toString(), 
-                                        "description": details.description, 
-                                        "previewLink": details.preview_url, 
-                                        "tags": details.tags })
                                 });
                                 resolve(returnDetails);
                             } catch (e) {
