@@ -63,9 +63,6 @@ p {
 #buttonRestart, #buttonStop, #addControl {
     display: none;
 }
-#startMap {
-    
-}
 #addControl {
     display: flex;
     align-items: center;
@@ -119,11 +116,40 @@ p {
     padding-left: 0px;
 }
 #playerLists li {
-    padding-top: 7px;
-    padding-bottom: 7px;
+    display: flex;
+    flex-direction: row;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 3px;
     margin: 2px;
     border: 1px solid #333333;
-    text-align: center;
+}
+#playerLists li .playerName {
+    display: flex;
+    flex-grow: 2;
+    align-items: center;
+    font-size: 1.1em;
+    margin: 2px;
+}
+#playerLists p {
+    margin: 2px;
+}
+#playerLists li .playerScore {
+    display: flex;
+    flex-direction: column;
+    align-content: center;
+    margin-right: 3px;
+    padding-left: 0.5em;
+}
+#playerLists li .playerKills {
+    display: flex;
+    font-size: 1em;
+    text-align: right;
+}
+#playerLists li .playerDeaths {
+    display: flex;
+    font-size: 1em;
+    text-align: right;
 }
 
 #mapControl {
