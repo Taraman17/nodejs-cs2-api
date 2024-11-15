@@ -1,55 +1,94 @@
-[{
-    "name": "ar_baggage",
-    "id": 125440026
-},{
-    "name": "ar_poolday",
-    "id": 3263935964
-},{
-    "name": "ar_shoots",
-    "id" : 125440261
-},{
-    "name": "cs_assault",
-    "id": 125432575
-},{
-    "name": "cs_italy",
-    "id": 125436057
-},{
-    "name": "cs_office",
-    "id": 125444404
-},{
-    "name": "de_ancient",
-    "id": 2627571649
-},{
-    "name": "de_anubis",
-    "id": 1984883124
-},{
-    "name": "de_assembly",
-    "id": 3071005299
-},{
-    "name": "de_dust2",
-    "id": 125438255
-},{
-    "name": "de_inferno",
-    "id": 125438669
-},{
-    "name": "de_memento",
-    "id": 3165559377
-},{
-    "name": "de_mills",
-    "id": 3152430710
-},{
-    "name": "de_mirage",
-    "id": 152508932
-},{
-    "name": "de_nuke",
-    "id": 125439125
-},{
-    "name": "de_overpass",
-    "id": 205240106
-},{
-    "name": "de_thera",
-    "id": 3121217565
-},{
-    "name": "de_vertigo",
-    "id": 125439851
-}]
+[
+    {
+        "name": "ar_baggage",
+        "id": 125440026
+    },
+    {
+        "name": "ar_poolday",
+        "id": 3263935964
+    },
+    {
+        "name": "ar_shoots",
+        "id": 125440261
+    },
+    {
+        "name": "cs_assault",
+        "id": 125432575
+    },
+    {
+        "name": "cs_italy",
+        "id": 125436057
+    },
+    {
+        "name": "cs_office",
+        "id": 125444404
+    },
+    {
+        "name": "de_ancient",
+        "id": 2627571649
+    },
+    {
+        "name": "de_anubis",
+        "id": 1984883124
+    },
+    {
+        "name": "de_assembly",
+        "id": 3071005299
+    },
+    {
+        "name": "de_basalt",
+        "id": 3329258290
+    },
+    {
+        "name": "de_dust2",
+        "id": 125438255
+    },
+    {
+        "name": "de_edin",
+        "id": 3328169568
+    },
+    {
+        "name": "de_inferno",
+        "id": 125438669
+    },
+    {
+        "name": "de_memento",
+        "id": 3165559377
+    },
+    {
+        "name": "de_mills",
+        "id": 3152430710
+    },
+    {
+        "name": "de_mirage",
+        "id": 152508932
+    },
+    {
+        "name": "de_nuke",
+        "id": 125439125
+    },
+    {
+        "name": "de_overpass",
+        "id": 205240106
+    },
+    {
+        "name": "de_palais",
+        "id": 3257582863
+    },
+    {
+        "name": "de_thera",
+        "id": 3121217565
+    },
+    {
+        "name": "de_train",
+        "id": 125438372
+    },
+    {
+        "name": "de_vertigo",
+        "id": 125439851
+    },
+    {
+        "name": "de_whistle",
+        "id": 3308613773
+    }
+]
