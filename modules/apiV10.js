@@ -309,7 +309,16 @@ router.get("/control/start", (req, res) => {
     } else {
       startMap = args.startmap;
     }
-    let commandLine = `${cfg.serverCommandline} +map ${startMap}`;
+    let commandLine = "";
+    if(cfg.type == "local"){
+      commandLine = `${cfg.serverCommandline} +map ${startMap}`;
+    } else if(cfg.type == "docker") {
+      commandLine = `${cfg.serverCommandline}`;
+    } else {
+      logger.error(`Unknown server type in config: ${cfg.type}`);
+      res.status(501).json({ error: `Unknown server type in config: ${cfg.type}` });
+      return;
+    }
     logger.info(commandLine);
     exec(commandLine, (error, stdout, stderr) => {
       if (error) {
@@ -321,7 +330,7 @@ router.get("/control/start", (req, res) => {
         serverInfo.serverState.serverRunning = false;
         controlEmitter.emit("exec", "start", "fail");
       } else {
-        logger.verbose("screen started");
+        logger.verbose("Server started");
         controlEmitter.on("exec", function startCallback(operation, action) {
           if (
             operation == "auth" &&
@@ -508,6 +517,15 @@ router.get("/control/stop", (req, res) => {
           serverInfo.serverState.serverRunning = false;
           serverInfo.serverState.authenticated = false;
           serverInfo.reset();
+          if(cfg.type=="docker"){
+            exec(`docker compose -f ${cfg.dockerfile} down`, (error, stdout, stderr) => {
+              if (error) {
+                logger.error(`exec error: ${error}, ${stderr}`);
+              } else {
+                logger.verbose("Docker container stopped.");
+              }
+            });
+          }
           res.json({ success: true });
         } else {
           res.status(501).json({ error: `RCON response not correct.` });

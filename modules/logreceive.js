@@ -7,11 +7,17 @@ var serverInfo = require('./serverInfo.js');
 const sf = require('./sharedFunctions.js');
 var cfg = require('./configClass.js');
 
+// For debugging purposes, write all received logs to a file.
+// const fs = require('fs');
+// const stream = fs.createWriteStream('log.txt', { flags: 'a' });
+
 router.post('/log', (req, res) => {
     const data = req.body;
     var logs = data.split(/\r\n|\r|\n/);
 
     logs.forEach(line => {
+        // For debugging purposes, write all received logs to a file.
+        // stream.write(line + '\n')
         if (line.length >= 20) {
             // Start authentication, when not authenticated.
             if ((line.indexOf('Log file started') != -1) && !serverInfo.serverState.authenticated) {

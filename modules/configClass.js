@@ -33,6 +33,10 @@ class Config {
     return args;
   }
 
+  get type() {
+    return this.#userOptions.type;
+  }
+
   get apiToken() {
     return this.#userOptions.apiToken;
   }
@@ -43,6 +47,10 @@ class Config {
 
   get admins() {
     return this.#userOptions.admins;
+  }
+
+  get dockerfile() {
+    return this.#userOptions.dockerfile;
   }
 
   get workshopCollection() {
@@ -114,12 +122,19 @@ class Config {
   }
 
   get serverCommandline() {
-    let command = `${this.#screenCommand} ${this.#csgoCommand} ${
-      this.#csgoArgs
-    }`;
-    if (this._csgoToken !== "") {
-      command = `${command} ${this.#serverTokenCommand}`;
+    let command = "";
+    if (this.type == "local") {
+      command = `${this.#screenCommand} ${this.#csgoCommand} ${
+        this.#csgoArgs
+      }`;
+      if (this._csgoToken !== "") {
+        command = `${command} ${this.#serverTokenCommand}`;
+      }
+    } else if (this.type == "docker") {
+      command = `docker compose -f ${this.#userOptions.dockerfile} up -d`;
     }
+
+    
     return command;
   }
 

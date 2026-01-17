@@ -4,6 +4,7 @@ const protocol = window.location.protocol;
 const address = `${protocol}//${host}:8090/csgoapi`;
 const apiPath = `${address}/v1.0`;
 const maplistFile = "./maplist.txt";
+const type = "local";
 
 // Titles for throbber window.
 const titles = {
@@ -119,10 +120,10 @@ function setupServerRunning() {
 
 function setupServerStopped() {
   $("#power-image").attr("src", "pic/power-off.png");
-  $("#startMap").show(0);
+  type=="local" ? $("#startMap").show(0) : $("#startMap").hide(0);
   $("#buttonStart").show(0);
   $("#buttonStop").hide(0);
-  $("#buttonUpdate").show(0);
+  type=="local" ? $("#buttonUpdate").show(0) : $("#buttonUpdate").hide(0);
   $("#buttonLogin").hide(0);
   $("#serverInfo").hide(0);
   $("#addControl").hide(0);

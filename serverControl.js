@@ -100,8 +100,13 @@ controlEmitter.on("exec", (operation, action) => {
     sf.executeRcon("status").then((answer) => {
       const re = /\[1: (\w+) \|/;
       const matches = re.exec(answer);
-      const mapstring = matches[1];
-      serverInfo.map = sf.cutMapName(mapstring);
+      // It may happen, that map is not loaded at this point.
+      try {
+        const mapstring = matches[1];
+        serverInfo.map = sf.cutMapName(mapstring);
+      } catch {
+        // just ignore for now.
+      }
     });
     sf.reloadMaplist()
       .then(() => {
