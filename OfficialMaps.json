@@ -4,7 +4,7 @@
         "id": 125440026
     },
     {
-        "name": "ar_poolday",
+        "name": "ar_pool_day",
         "id": 3263935964
     },
     {
@@ -14,6 +14,10 @@
     {
         "name": "cs_agency",
         "id": 3339983232
+    },
+    {
+        "name": "cs_alpine",
+        "id": 3221491619
     },
     {
         "name": "cs_italy",
@@ -60,8 +64,20 @@
         "id": 3249860053
     },
     {
+        "name": "de_poseidon",
+        "id": 3522144043
+    },
+    {
         "name": "de_rooftop",
         "id": 3536622725
+    },
+    {
+        "name": "de_sanctum",
+        "id": 3643331442
+    },
+    {
+        "name": "de_stronghold",
+        "id": 3477094554
     },
     {
         "name": "de_train",
@@ -70,5 +86,9 @@
     {
         "name": "de_vertigo",
         "id": 125439851
+    },
+    {
+        "name": "de_warden",
+        "id": 3256988376
     }
 ]
