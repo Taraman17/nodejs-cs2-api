@@ -28,16 +28,44 @@
         "id": 125444404
     },
     {
+        "name": "cs_shelter",
+        "id": 3737179295
+    },
+    {
         "name": "de_ancient",
         "id": 2627571649
+    },
+    {
+        "name": "de_ancient_night",
+        "id": 3595773509
     },
     {
         "name": "de_anubis",
         "id": 1984883124
     },
     {
+        "name": "de_boulder",
+        "id": 3663186989
+    },
+    {
+        "name": "de_cache",
+        "id": 3437809122
+    },
+    {
+        "name": "de_debris",
+        "id": 3539217452
+    },
+    {
         "name": "de_dust2",
         "id": 125438255
+    },
+    {
+        "name": "de_eldorado",
+        "id": 3408790618
+    },
+    {
+        "name": "de_fachwerk",
+        "id": 3442040035
     },
     {
         "name": "de_golden",
