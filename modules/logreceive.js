@@ -8,8 +8,8 @@ const sf = require('./sharedFunctions.js');
 var cfg = require('./configClass.js');
 
 // For debugging purposes, write all received logs to a file.
-// const fs = require('fs');
-// const stream = fs.createWriteStream('log.txt', { flags: 'a' });
+//const fs = require('fs');
+//const stream = fs.createWriteStream('log.txt', { flags: 'a' });
 
 router.post('/log', (req, res) => {
     const data = req.body;
@@ -17,12 +17,13 @@ router.post('/log', (req, res) => {
 
     logs.forEach(line => {
         // For debugging purposes, write all received logs to a file.
-        // stream.write(line + '\n')
+        //stream.write(line + '\n')
         if (line.length >= 20) {
             // Start authentication, when not authenticated.
             if ((line.indexOf('Log file started') != -1) && !serverInfo.serverState.authenticated) {
                 // Start of logfile
                 // L 08/13/2020 - 21:48:49: Log file started (file "logs/L000_000_000_000_27015_202008132148_000.log") (game "/home/user/csgo_ds/csgo") (version "7929")
+                controlEmitter.emit("exec", "start", "end");
                 logger.verbose('start authenticating RCON');
                 // Since authentication is a vital step for the API to work, we start it automatically
                 // once the server runs.
@@ -39,9 +40,12 @@ router.post('/log', (req, res) => {
                 // L 10/13/2023 - 14:28:38: Loading map "de_anubis"
                 let rex = /Loading map "(\S+)"/g;
                 let matches = rex.exec(line);
-                let mapstring = matches[1];
-                mapstring = sf.cutMapName(mapstring);
-                serverInfo.map = mapstring;
+                let mapstring = "none"
+                if (matches != null) {
+                    mapstring = matches[1];
+                    mapstring = sf.cutMapName(mapstring);
+                    serverInfo.map = mapstring;
+                }
                 serverInfo.pause = false;
                 // since 'started map' is also reported on server-start, only emit on mapchange.
                 if (serverInfo.serverState.operationPending == 'mapchange') {

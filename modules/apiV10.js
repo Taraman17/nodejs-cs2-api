@@ -19,6 +19,7 @@ var cfg = require("./configClass.js");
 var serverInfo = require("./serverInfo.js");
 var controlEmitter = require("./controlEmitter.js");
 const sf = require("./sharedFunctions.js");
+const dockerUp = require("./dockerUp.js");
 
 //--------------------------- V1.0 ----------------------------//
 /**
@@ -298,25 +299,28 @@ router.get("/control/start", (req, res) => {
     !serverInfo.serverState.serverRunning &&
     serverInfo.serverState.operationPending == "none"
   ) {
-    controlEmitter.emit("exec", "start", "start");
+    let action = cfg.type == "docker" ? "update" : "start";
+    controlEmitter.emit("exec", action, "start");
     logger.verbose("Starting server.");
     let startMap = "de_dust2";
     const safe = /^[a-zA-Z0-9-_]*$/;
     if (!safe.test(args.startmap)) {
       logger.warn(
-        `Supplied mapname ${args.startmap} is not safe, using de_dust2`
+        `Supplied mapname ${args.startmap} is not safe, using de_dust2`,
       );
     } else {
       startMap = args.startmap;
     }
     let commandLine = "";
-    if(cfg.type == "local"){
+    if (cfg.type == "local") {
       commandLine = `${cfg.serverCommandline} +map ${startMap}`;
-    } else if(cfg.type == "docker") {
+    } else if (cfg.type == "docker") {
       commandLine = `${cfg.serverCommandline}`;
     } else {
       logger.error(`Unknown server type in config: ${cfg.type}`);
-      res.status(501).json({ error: `Unknown server type in config: ${cfg.type}` });
+      res
+        .status(501)
+        .json({ error: `Unknown server type in config: ${cfg.type}` });
       return;
     }
     logger.info(commandLine);
@@ -331,13 +335,15 @@ router.get("/control/start", (req, res) => {
         controlEmitter.emit("exec", "start", "fail");
       } else {
         logger.verbose("Server started");
+        if (cfg.type == "docker") {
+          dockerUp.dockerUpdate()
+        }
         controlEmitter.on("exec", function startCallback(operation, action) {
           if (
             operation == "auth" &&
             action == "end" &&
             serverInfo.serverState.authenticated == true
           ) {
-            controlEmitter.emit("exec", "start", "end");
             res.json({ success: true });
             controlEmitter.removeListener("exec", startCallback);
           } else if (
@@ -358,13 +364,11 @@ router.get("/control/start", (req, res) => {
     res.status(503).json({ error: "Server already running." });
   } else if (serverInfo.serverState.operationPending != "none") {
     logger.warn(
-      `Server Start triggered, while ${serverInfo.serverState.operationPending} pending.`
+      `Server Start triggered, while ${serverInfo.serverState.operationPending} pending.`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
@@ -416,13 +420,11 @@ router.get("/control/pause", (req, res) => {
     res.status(503).json({ error: "Server not running." });
   } else if (serverInfo.serverState.operationPending != "none") {
     logger.warn(
-      `Pause triggered, while ${serverInfo.serverState.operationPending} pending.`
+      `Pause triggered, while ${serverInfo.serverState.operationPending} pending.`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
@@ -475,13 +477,11 @@ router.get("/control/unpause", (req, res) => {
     res.status(503).json({ error: "Server not running." });
   } else if (serverInfo.serverState.operationPending != "none") {
     logger.warn(
-      `Unpause triggered, while ${serverInfo.serverState.operationPending} pending.`
+      `Unpause triggered, while ${serverInfo.serverState.operationPending} pending.`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
@@ -517,20 +517,23 @@ router.get("/control/stop", (req, res) => {
           serverInfo.serverState.serverRunning = false;
           serverInfo.serverState.authenticated = false;
           serverInfo.reset();
-          if(cfg.type=="docker"){
-            exec(`docker compose -f ${cfg.dockerfile} down`, (error, stdout, stderr) => {
-              if (error) {
-                logger.error(`exec error: ${error}, ${stderr}`);
-              } else {
-                logger.verbose("Docker container stopped.");
-              }
-            });
+          if (cfg.type == "docker") {
+            exec(
+              `docker compose -f ${cfg.dockerfile} down`,
+              (error, stdout, stderr) => {
+                if (error) {
+                  logger.error(`exec error: ${error}, ${stderr}`);
+                } else {
+                  logger.verbose("Docker container stopped.");
+                }
+              },
+            );
           }
           res.json({ success: true });
         } else {
           res.status(501).json({ error: `RCON response not correct.` });
           logger.warn(
-            "Stopping the server failed - rcon command not successful"
+            "Stopping the server failed - rcon command not successful",
           );
         }
         controlEmitter.emit("exec", "stop", "end");
@@ -545,13 +548,11 @@ router.get("/control/stop", (req, res) => {
     res.status(503).json({ error: "Server not running." });
   } else if (serverInfo.serverState.operationPending != "none") {
     logger.warn(
-      `Stop triggered, while ${serverInfo.serverState.operationPending} pending.`
+      `Stop triggered, while ${serverInfo.serverState.operationPending} pending.`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
@@ -573,27 +574,47 @@ router.get("/control/stop", (req, res) => {
  *     { "error": "Could not find csgo server process" }
  */
 router.get("/control/kill", (req, res) => {
+  let resetState = () => {
+    // reset API-State
+    serverInfo.serverState.serverRunning = false;
+    serverInfo.serverState.authenticated = false;
+    serverInfo.serverState.serverRcon = undefined;
+  };
   exec("/bin/ps -A |grep cs2", (error, stdout, stderr) => {
     if (error) {
       logger.error(`exec error: ${error}, ${stderr}`);
       res.status(501).json({ error: "Could not find csgo server process" });
     } else if (stdout.match(/cs2/) != null) {
-      let pid = stdout.split(/\s+/)[1];
-      exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
-        if (error) {
-          logger.warn(
-            `Server process could not be killed: ${error}: ${stderr}`
-          );
-          res.status(501).json({ error: "Could not kill csgo server process" });
-        } else {
-          // reset API-State
-          serverInfo.serverState.serverRunning = false;
-          serverInfo.serverState.authenticated = false;
-          serverInfo.serverState.serverRcon = undefined;
-          logger.verbose("Server process killed.");
-          res.json({ success: true });
-        }
-      });
+      if (cfg.type == "local") {
+        let pid = stdout.split(/\s+/)[1];
+        exec(`/bin/kill ${pid}`, (error, stdout, stderr) => {
+          if (error) {
+            logger.warn(
+              `Server process could not be killed: ${error}: ${stderr}`,
+            );
+            res
+              .status(501)
+              .json({ error: "Could not kill csgo server process" });
+          } else {
+            resetState();
+            logger.verbose("Server process killed.");
+            res.json({ success: true });
+          }
+        });
+      } else if (cfg.type == "docker") {
+        exec(
+          `docker compose -f ${cfg.dockerfile} down`,
+          (error, stdout, stderr) => {
+            if (error) {
+              logger.error(`exec error: ${error}, ${stderr}`);
+            } else {
+              logger.verbose("Docker container stopped.");
+              resetState();
+              res.json({ success: true });
+            }
+          },
+        );
+      }
     }
   });
 });
@@ -651,7 +672,7 @@ router.get("/control/update", (req, res) => {
         controlEmitter.emit(
           "progress",
           "Updating Steam client",
-          matches[1].slice(0, -1)
+          matches[1].slice(0, -1),
         );
       } else if (data.indexOf("Success!") != -1) {
         controlEmitter.emit("progress", "Update successful!", 100);
@@ -692,13 +713,11 @@ router.get("/control/update", (req, res) => {
     res.status(503).json({ error: "Server is running - stop before updating" });
   } else if (serverInfo.serverState.operationPending != "none") {
     logger.warn(
-      `Update triggered, while ${serverInfo.serverState.operationPending} pending`
+      `Update triggered, while ${serverInfo.serverState.operationPending} pending`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
@@ -754,7 +773,7 @@ router.get("/control/changemap", (req, res) => {
           if (
             map.official &&
             answer.indexOf(
-              `CHostStateMgr::QueueNewRequest( Changelevel (${map.name})`
+              `CHostStateMgr::QueueNewRequest( Changelevel (${map.name})`,
             ) == -1
           ) {
             // If the mapchange command fails, return failure immediately
@@ -805,13 +824,11 @@ router.get("/control/changemap", (req, res) => {
     }
   } else {
     logger.warn(
-      `Mapchange triggered, while ${serverInfo.serverState.operationPending} pending.`
+      `Mapchange triggered, while ${serverInfo.serverState.operationPending} pending.`,
     );
-    res
-      .status(503)
-      .json({
-        error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
-      });
+    res.status(503).json({
+      error: `Another Operation is Pending: ${serverInfo.serverState.operationPending}`,
+    });
   }
 });
 
