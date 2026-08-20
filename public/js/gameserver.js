@@ -1,10 +1,11 @@
-﻿// Change here if you don't host the webInterfae on the same host as the NodeJS API
+﻿/* eslint-disable no-unused-vars */
+// Change here if you don't host the webInterfae on the same host as the NodeJS API
 const host = window.location.hostname;
 const protocol = window.location.protocol;
 const address = `${protocol}//${host}:8090/csgoapi`;
 const apiPath = `${address}/v1.0`;
 const maplistFile = "./maplist.txt";
-const type = "local";
+const type = "docker";
 
 // Titles for throbber window.
 const titles = {
@@ -120,10 +121,10 @@ function setupServerRunning() {
 
 function setupServerStopped() {
   $("#power-image").attr("src", "pic/power-off.png");
-  type=="local" ? $("#startMap").show(0) : $("#startMap").hide(0);
+  type == "local" ? $("#startMap").show(0) : $("#startMap").hide(0);
   $("#buttonStart").show(0);
   $("#buttonStop").hide(0);
-  type=="local" ? $("#buttonUpdate").show(0) : $("#buttonUpdate").hide(0);
+  type == "local" ? $("#buttonUpdate").show(0) : $("#buttonUpdate").hide(0);
   $("#buttonLogin").hide(0);
   $("#serverInfo").hide(0);
   $("#addControl").hide(0);
@@ -191,7 +192,7 @@ function movePlayer(event) {
     `message=sm_move${command} "${player}"`,
     (data) => {
       // no actions for now.
-    }
+    },
   );
 }
 
@@ -203,7 +204,7 @@ function getMaps() {
   serverInfo
     .then((data) => {
       $("#currentMap").html(`Current map: ${data.map}`);
-      maplist = data.mapsDetails;
+      let maplist = data.mapsDetails;
       $("#mapSelector").empty();
       maplist.forEach((map) => {
         if ("content" in document.createElement("template")) {
@@ -218,8 +219,8 @@ function getMaps() {
           $("#mapSelector").append(document.importNode(mapDiv.content, true));
         } else {
           let alttext = createElement("h2");
-          text.html(
-            "Your browser does not have HTML template support - please use another browser."
+          alttext.html(
+            "Your browser does not have HTML template support - please use another browser.",
           );
           $("#mapSelector").append(alttext);
         }
@@ -282,7 +283,7 @@ function pauseGame() {
         $("#pause-overlay").css("top", $("#serverControl").position().top);
         $("#pause-overlay").css(
           "height",
-          $("#serverInfo").height() + $("#serverControl").height()
+          $("#serverInfo").height() + $("#serverControl").height(),
         );
         $("#pause-overlay").css("display", "flex");
       }
@@ -346,6 +347,7 @@ function kickBots() {
 
 // what to do after document is loaded.
 var socket = null;
+var timeoutId = null;
 $(document).ready(() => {
   let startSocket = () => {
     try {
@@ -374,7 +376,7 @@ $(document).ready(() => {
         $("#rounds").html(
           `Rounds: ${serverInfo.maxRounds} / Left: ${
             serverInfo.maxRounds - (serverInfo.score.T + serverInfo.score.C)
-          }`
+          }`,
         );
 
         $(".playerDiv ul").empty();
@@ -389,19 +391,17 @@ $(document).ready(() => {
               var playerLi = document.querySelector("#playerTemplate");
               playerLi.content.querySelector(".playerName").textContent =
                 player.name;
-              playerLi.content.querySelector(
-                ".playerKills"
-              ).textContent = `K: ${player.kills}`;
-              playerLi.content.querySelector(
-                ".playerDeaths"
-              ).textContent = `D: ${player.deaths}`;
+              playerLi.content.querySelector(".playerKills").textContent =
+                `K: ${player.kills}`;
+              playerLi.content.querySelector(".playerDeaths").textContent =
+                `D: ${player.deaths}`;
               $(`#${player.team.toLowerCase()}List`).append(
-                document.importNode(playerLi.content, true)
+                document.importNode(playerLi.content, true),
               );
             } else {
               let alttext = document.createElement("li");
               alttext.html(
-                "Your browser does not have HTML template support - please use another browser."
+                "Your browser does not have HTML template support - please use another browser.",
               );
               $(`#${player.team.toLowerCase()}List`).append(alttext);
             }
@@ -412,7 +412,7 @@ $(document).ready(() => {
           $("#pause-overlay").css("top", $("#serverControl").position().top);
           $("#pause-overlay").css(
             "height",
-            $("#serverInfo").height() + $("#serverControl").height()
+            $("#serverInfo").height() + $("#serverControl").height(),
           );
           $("#pause-overlay").css("display", "flex");
         } else {
@@ -434,12 +434,12 @@ $(document).ready(() => {
                   .querySelector(".map")
                   .setAttribute("id", map.workshopID);
                 $("#mapSelector").append(
-                  document.importNode(mapDiv.content, true)
+                  document.importNode(mapDiv.content, true),
                 );
               } else {
                 let alttext = document.createElement("h2");
                 alttext.html(
-                  "Your browser does not have HTML template support - please use another browser."
+                  "Your browser does not have HTML template support - please use another browser.",
                 );
                 $("#mapSelector").append(alttext);
               }
@@ -448,6 +448,10 @@ $(document).ready(() => {
         }
       } else if (data.type == "commandstatus") {
         if (data.payload.state == "start") {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
           $("#popupCaption").text(`${titles[data.payload.operation]}`);
           $("#popupText").text("Moment bitte!");
           $("#container-popup").css("display", "flex");
@@ -456,13 +460,15 @@ $(document).ready(() => {
           data.payload.operation != "start"
         ) {
           $("#popupText").html(`${data.payload.operation} success!`);
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             $("#container-popup").css("display", "none");
-            setupPage();
+            if (data.payload.operation != "update") {
+              setupPage();
+            }
           }, 1500);
         } else if (data.payload.state == "fail") {
           $("#popupText").html(`${data.payload.operation} failed!`);
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             $("#container-popup").css("display", "none");
             if (
               data.payload.operation != "update" &&
@@ -487,7 +493,7 @@ $(document).ready(() => {
       }
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       // connection closed, discard old websocket and create a new one in 5s
       socket = null;
       setTimeout(startSocket, 5000);
