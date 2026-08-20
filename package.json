@@ -1,8 +1,9 @@
 {
     "dependencies": {
         "cors": ">=2.8.5",
-        "express": ">=4.17.1",
-        "express-rate-limit": ">=5.2.6",
+        "dockerode": "^5.0.1",
+        "express": ">=5.2.1",
+        "express-rate-limit": ">=8.6.0",
         "express-session": ">=1.17.2",
         "local-ip": ">=2.0.0",
         "node-pty": ">=0.10.1",
@@ -12,7 +13,7 @@
         "queue": "6.0",
         "winston": ">=3.3.3",
         "winston-daily-rotate-file": ">=4.5.5",
-        "ws": ">=8.0.0"
+        "ws": ">=8.20.1"
     },
     "name": "nodejs-cs2-api",
     "description": "## Disclaimer The use of this software is at your own risk. It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server. I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.",
