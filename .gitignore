@@ -1,2 +1,5 @@
 node_modules
 config.local.js
+.vscode/launch.json
+log.txt
+
