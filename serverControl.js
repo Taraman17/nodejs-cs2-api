@@ -65,7 +65,7 @@ exec("/bin/ps -A", (error, stdout, stderr) => {
       .then((data) => {
         logger.verbose(`authentication ${data.authenticated}`);
         sf.executeRcon(
-          `logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`
+          `logaddress_add_http "http://${cfg.localIp}:${cfg.logPort}/log`,
         );
         sf.executeRcon(`host_workshop_collection ${cfg.workshopCollection}`);
       })
@@ -87,13 +87,13 @@ controlEmitter.on("exec", (operation, action) => {
     action === "start" ? operation : "none";
   logger.debug(
     "serverInfo.serverState.operationPending = " +
-      serverInfo.serverState.operationPending
+      serverInfo.serverState.operationPending,
   );
   if (operation === "auth" && action === "end") {
     serverInfo.serverState.authenticated = true;
     logger.debug(
       "serverInfo.serverState.authenticated = " +
-        serverInfo.serverState.authenticated
+        serverInfo.serverState.authenticated,
     );
     logger.verbose("RCON Authenticate success");
     // Get current and available maps and store them.
@@ -141,13 +141,13 @@ app.use(
     },
     resave: true,
     saveUninitialized: true,
-  })
+  }),
 );
 app.use(
   cors({
     origin: cfg.host,
     credentials: true,
-  })
+  }),
 );
 app.use(passport.initialize());
 app.use(passport.session());
@@ -182,8 +182,8 @@ passport.use(
         });
         return done(null, profile);
       });
-    }
-  )
+    },
+  ),
 );
 
 function ensureAuthenticated(req, res, next) {
@@ -236,7 +236,7 @@ app.get(
   passport.authenticate("steam", { failureRedirect: "/csgoapi/loginStatus" }),
   (req, res) => {
     res.redirect(cfg.redirectPage);
-  }
+  },
 );
 /**
  * @api {get} /csgoapi/logout
@@ -313,14 +313,14 @@ if (cfg.httpAuth) {
           });
           return done(null, false);
         }
-      }
-    )
+      },
+    ),
   );
 
   app.use(
     "/csgoapi/http/v1.0/",
     passport.authenticate("basic", { session: false }),
-    apiV10
+    apiV10,
   );
 }
 // --------------------- END Basic authentication -------------------------- //
@@ -368,81 +368,80 @@ if (cfg.webSockets) {
     logger.verbose(host);
   });
 
+  const sendToSocket = (ws, message) => {
+    if (ws.readyState === webSocket.OPEN) {
+      ws.send(message);
+    }
+  };
+
+  const broadcast = (message) => {
+    wss.clients.forEach((ws) => sendToSocket(ws, message));
+  };
+
+  const sendUpdate = () => {
+    broadcast(
+      JSON.stringify({
+        type: "serverInfo",
+        payload: serverInfo.getAll(),
+      }),
+    );
+  };
+
+  const sendControlNotification = (operation, action) => {
+    broadcast(
+      JSON.stringify({
+        type: "commandstatus",
+        payload: { operation, state: action },
+      }),
+    );
+  };
+
+  const reportProgress = (action, progress) => {
+    broadcast(
+      JSON.stringify({
+        type: "progress",
+        payload: { step: action, progress },
+      }),
+    );
+  };
+
+  serverInfo.serverInfoChanged.on("change", sendUpdate);
+  controlEmitter.on("exec", sendControlNotification);
+  controlEmitter.on("progress", reportProgress);
+
   /**
    * Websocket to send data updates to a webClient.
    * @listens ws#connection
    */
   wss.on("connection", (ws) => {
     /**
-     * Sends updated serverInfo to clients.
-     */
-    const sendUpdate = () => {
-      ws.send(
-        `{ "type": "serverInfo", "payload": ${JSON.stringify(
-          serverInfo.getAll()
-        )} }`
-      );
-    };
-
-    /**
      * Listens for messages on Websocket.
      * @listens ws#message
      */
     ws.on("message", (message) => {
       if (message.toString().search("infoRequest") !== -1) {
-        sendUpdate();
+        sendToSocket(
+          ws,
+          JSON.stringify({
+            type: "serverInfo",
+            payload: serverInfo.getAll(),
+          }),
+        );
       }
     });
 
     /**
-     * Listens for changed serverInfo and calls function to forward them.
-     * @listens serverInfo.serverInfoChanged#change
-     */
-    serverInfo.serverInfoChanged.on("change", sendUpdate);
-
-    /**
-     * Notifies clients of start or end of a control operation
-     * @param {string} operation (start, stop, update, mapchange)
-     * @param {string} action (start, end, fail)
-     */
-    const sendControlNotification = (operation, action) => {
-      ws.send(
-        `{ "type": "commandstatus", "payload": { "operation": "${operation}", "state": "${action}" } }`
-      );
-    };
-
-    /**
-     * Listens for execution notification of control operations.
-     * @listens controlEmitter#exec
-     */
-    controlEmitter.on("exec", sendControlNotification);
-
-    /**
-     * Reports update progress to clients.
-     * @param {string} action - Reports, which action is in progress during the update.
-     * @param {int} progress - Integer representing the percentage of the action that is completed.
-     */
-    const reportProgress = (action, progress) => {
-      ws.send(
-        `{ "type": "progress", "payload": { "step": "${action}", "progress": ${progress} } }`
-      );
-    };
-
-    /**
-     * Listens for progress reporst from update process and sends them to the client.
-     * @listens controlEmitter#progress
-     */
-    controlEmitter.on("progress", reportProgress);
-
-    /**
-     * Listens for Websocket to close and removes listeners.
+     * Listens for Websocket to close.
      * @listens ws#close
      */
     ws.on("close", (code, reason) => {
-      serverInfo.serverInfoChanged.removeListener("change", sendUpdate);
-      controlEmitter.removeListener("exec", sendControlNotification);
-      controlEmitter.removeListener("progress", reportProgress);
       logger.info(`websocket closed with code ${code}. Reason: ${reason}`);
     });
+  });
+
+  wssServer.on("close", () => {
+    serverInfo.serverInfoChanged.removeListener("change", sendUpdate);
+    controlEmitter.removeListener("exec", sendControlNotification);
+    controlEmitter.removeListener("progress", reportProgress);
   });
 }

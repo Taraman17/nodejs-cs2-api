@@ -20,6 +20,42 @@ var serverInfo = require("./serverInfo.js");
 var controlEmitter = require("./controlEmitter.js");
 const sf = require("./sharedFunctions.js");
 const dockerUp = require("./dockerUp.js");
+const reportUpdateProgress = require("./updateProgress.js");
+
+function waitForAuthResult(res, onSuccess, onFailure) {
+  let settled = false;
+  let timeout;
+
+  const cleanup = () => {
+    clearTimeout(timeout);
+    controlEmitter.removeListener("exec", handleAuthResult);
+    res.removeListener("close", cleanup);
+  };
+
+  const finish = (callback) => {
+    if (settled || res.headersSent) {
+      return;
+    }
+    settled = true;
+    cleanup();
+    callback();
+  };
+
+  const handleAuthResult = (operation, action) => {
+    if (operation !== "auth") {
+      return;
+    }
+    if (action === "end") {
+      finish(onSuccess);
+    } else if (action === "fail") {
+      finish(onFailure);
+    }
+  };
+
+  controlEmitter.on("exec", handleAuthResult);
+  res.once("close", cleanup);
+  timeout = setTimeout(() => finish(onFailure), 60000);
+}
 
 //--------------------------- V1.0 ----------------------------//
 /**
@@ -88,13 +124,12 @@ router.get("/info/runstatus", (req, res) => {
     serverInfo.serverState.operationPending == "start" ||
     serverInfo.serverState.operationPending == "stop"
   ) {
-    let sendResponse = (type, action) => {
-      if (type == "auth" && action == "end") {
-        res.json({ running: serverInfo.serverState.serverRunning });
-        controlEmitter.removeListener("exec", sendResponse);
-      }
-    };
-    controlEmitter.on("exec", sendResponse);
+    waitForAuthResult(
+      res,
+      () => res.json({ running: serverInfo.serverState.serverRunning }),
+      () =>
+        res.status(503).json({ error: "Could not determine server status." }),
+    );
   } else {
     res.json({ running: serverInfo.serverState.serverRunning });
   }
@@ -115,13 +150,11 @@ router.get("/info/runstatus", (req, res) => {
  */
 router.get("/info/rconauthstatus", (req, res) => {
   if (serverInfo.serverState.operationPending == "auth") {
-    let sendResponse = (type, action) => {
-      if (type == "auth" && action == "end") {
-        res.json({ rconauth: serverInfo.serverState.authenticated });
-        controlEmitter.removeListener("exec", sendResponse);
-      }
-    };
-    controlEmitter.on("exec", sendResponse);
+    waitForAuthResult(
+      res,
+      () => res.json({ rconauth: serverInfo.serverState.authenticated }),
+      () => res.status(503).json({ error: "RCON authentication failed." }),
+    );
   } else {
     res.json({ rconauth: serverInfo.serverState.authenticated });
   }
@@ -324,7 +357,7 @@ router.get("/control/start", (req, res) => {
       return;
     }
     logger.info(commandLine);
-    exec(commandLine, (error, stdout, stderr) => {
+    exec(commandLine, async (error, stdout, stderr) => {
       if (error) {
         // node couldn't execute the command.
         res.status(501).json({ error: error.code });
@@ -336,7 +369,19 @@ router.get("/control/start", (req, res) => {
       } else {
         logger.verbose("Server started");
         if (cfg.type == "docker") {
-          dockerUp.dockerUpdate()
+          try {
+            await dockerUp.dockerUpdate();
+          } catch (dockerError) {
+            logger.error(
+              `Docker log stream could not be started: ${dockerError}`,
+            );
+            serverInfo.serverState.serverRunning = false;
+            controlEmitter.emit("exec", "start", "fail");
+            if (!res.headersSent) {
+              res.status(501).json({ error: "Docker startup failed." });
+            }
+            return;
+          }
         }
         controlEmitter.on("exec", function startCallback(operation, action) {
           if (
@@ -650,35 +695,8 @@ router.get("/control/update", (req, res) => {
 
     updateProcess.on("data", (data) => {
       logger.debug(data);
-      if (data.indexOf("Checking for available updates") != -1) {
-        controlEmitter.emit("progress", "Checking Steam client updates", 0);
-      } else if (data.indexOf("Verifying installation") != -1) {
-        controlEmitter.emit("progress", "Verifying client installation", 0);
-      } else if (data.indexOf("Logging in user") != -1) {
-        controlEmitter.emit("progress", "Logging in steam user", 0);
-      } else if (data.indexOf("FAILED") != -1) {
-        let rex = /FAILED \((.+)\)/;
-        let matches = rex.exec(data);
-        controlEmitter.emit("progress", `Login Failed: ${matches[1]}`, 0);
-      } else if (data.indexOf("Logged in OK") != -1) {
-        controlEmitter.emit("progress", "Login OK", 100);
-      } else if (data.indexOf("Update state (0x") != -1) {
-        let rex = /Update state \(0x\d+\) (.+), progress: (\d{1,3})\.\d{2}/;
-        let matches = rex.exec(data);
-        controlEmitter.emit("progress", matches[1], matches[2]);
-      } else if (data.indexOf("Downloaaction update (") != -1) {
-        let rex = /\[(.+)] Downloaaction update/;
-        let matches = rex.exec(data);
-        controlEmitter.emit(
-          "progress",
-          "Updating Steam client",
-          matches[1].slice(0, -1),
-        );
-      } else if (data.indexOf("Success!") != -1) {
-        controlEmitter.emit("progress", "Update successful!", 100);
-        logger.verbose("Update succeeded");
+      if (reportUpdateProgress(data)) {
         updateSuccess = true;
-        controlEmitter.emit("exec", "update", "end");
       }
     });
 
@@ -780,37 +798,38 @@ router.get("/control/changemap", (req, res) => {
             res.status(501).json({ error: `Mapchange failed: ${answer}` });
             controlEmitter.emit("exec", "mapchange", "fail");
           } else {
-            if (!cfg.webSockets) {
-              // If the mapchange completed, send success and cancel timeout.
-              let sendCompleted = (operation, action) => {
-                if (operation == "mapchange" && action == "end") {
-                  res.json({ success: true });
-                  clearTimeout(mapchangeTimeout);
-                }
-              };
-              controlEmitter.once("exec", sendCompleted);
+            let mapchangeFinished = false;
+            let mapchangeTimeout;
+            const finishMapchange = (success) => {
+              if (mapchangeFinished) {
+                return;
+              }
+              mapchangeFinished = true;
+              clearTimeout(mapchangeTimeout);
+              controlEmitter.removeListener("exec", mapchangeCompleted);
 
-              // Failure of a mapchange is unfortunately not logged by the server,
-              // so we use a timeout after 30 sec.
-              let mapchangeTimeout = setTimeout(() => {
-                res.status(501).json({ error: "Mapchange failed - timeout" });
+              if (!cfg.webSockets && success) {
+                res.json({ success: true });
+              } else if (!success) {
+                if (!cfg.webSockets) {
+                  res.status(501).json({ error: "Mapchange failed - timeout" });
+                }
                 controlEmitter.emit("exec", "mapchange", "fail");
-              }, 30000);
-            } else {
+              }
+            };
+            const mapchangeCompleted = (operation, action) => {
+              if (operation == "mapchange" && action == "end") {
+                finishMapchange(true);
+              }
+            };
+
+            controlEmitter.on("exec", mapchangeCompleted);
+            mapchangeTimeout = setTimeout(() => {
+              finishMapchange(false);
+            }, 30000);
+
+            if (cfg.webSockets) {
               res.json({ success: true });
-              // If the mapchange is successful, cancel the timeout.
-              let removeTimeout = (operation, action) => {
-                if (operation == "mapchange" && action == "end") {
-                  clearTimeout(mapchangeTimeout);
-                }
-              };
-              controlEmitter.once("exec", removeTimeout);
-
-              // Failure of a mapchange is unfortunately not logged by the server,
-              // so we use a timeout after 30 sec.
-              let mapchangeTimeout = setTimeout(() => {
-                controlEmitter.emit("exec", "mapchange", "fail");
-              }, 30000);
             }
           }
         })

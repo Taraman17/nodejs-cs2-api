@@ -7,6 +7,8 @@ const controlEmitter = require("./controlEmitter.js");
 const { default: Queue } = require("queue");
 
 const rconQ = new Queue({ autostart: true, timeout: 500, concurrency: 1 });
+const steamRequestTimeout = 10000;
+let authenticationPromise;
 
 /**
  * Authenticate rcon with server
@@ -14,60 +16,78 @@ const rconQ = new Queue({ autostart: true, timeout: 500, concurrency: 1 });
  * @fires controlEmitter.exec
  */
 function authenticate() {
-  if (serverInfo.serverState.operationPending !== "auth") {
-    controlEmitter.emit("exec", "auth", "start");
-    return new Promise((resolve, reject) => {
-      if (!serverInfo.serverState.authenticated) {
-        logger.verbose("RCON authenticating...");
-        // since this API is designed to run on the same machine as the server keeping
-        // default here which is 'localhost'
-        const authTimeout = setTimeout(() => {
-          logger.error("Authentication timed out");
-          controlEmitter.emit("exec", "auth", "fail");
-          reject({ authenticated: false });
-        }, 60000);
-        serverInfo.serverState.serverRcon = new Rcon({});
-        logger.debug("sending authentication request");
-        serverInfo.serverState.serverRcon
-          .authenticate(cfg.rconPass)
-          .then(() => {
-            logger.debug("received authentication");
-            controlEmitter.emit("exec", "auth", "end");
-            clearTimeout(authTimeout);
-            resolve({ authenticated: true });
-          })
-          .catch((err) => {
-            if (err === "Already authenticated") {
-              logger.verbose("Already authenticated.");
-              controlEmitter.emit("exec", "auth", "end");
-              clearTimeout(authTimeout);
-              resolve({ authenticated: true });
-            } else {
-              logger.error("authentication error: " + err);
-              controlEmitter.emit("exec", "auth", "fail");
-              clearTimeout(authTimeout);
-              reject({ authenticated: false });
-            }
-          });
-      } else {
-        logger.info("Already authenticated.");
+  if (serverInfo.serverState.authenticated) {
+    logger.info("Already authenticated.");
+    return Promise.resolve({ authenticated: true });
+  }
+
+  if (authenticationPromise) {
+    return authenticationPromise;
+  }
+
+  if (serverInfo.serverState.operationPending === "auth") {
+    logger.verbose(
+      `Rcon authentication cancelled due to other operation Pending: ${serverInfo.serverState.operationPending}`
+    );
+    return Promise.reject({ authenticated: false });
+  }
+
+  controlEmitter.emit("exec", "auth", "start");
+  logger.verbose("RCON authenticating...");
+  const rcon = new Rcon({});
+  serverInfo.serverState.serverRcon = rcon;
+
+  authenticationPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    let authTimeout;
+
+    const disconnect = () => {
+      if (rcon.connection) {
+        Promise.resolve(rcon.disconnect()).catch((error) => {
+          logger.debug(`RCON disconnect after authentication timeout failed: ${error}`);
+        });
+      }
+    };
+
+    const finish = (success) => {
+      if (settled) {
+        if (success) {
+          disconnect();
+        }
+        return;
+      }
+      settled = true;
+      clearTimeout(authTimeout);
+      authenticationPromise = undefined;
+
+      if (success) {
+        logger.debug("received authentication");
         controlEmitter.emit("exec", "auth", "end");
         resolve({ authenticated: true });
-      }
-    });
-  } else {
-    return new Promise((resolve, reject) => {
-      if (serverInfo.serverState.authenticated) {
-        logger.verbose("Already authenticated.");
-        resolve({ authenticated: true });
       } else {
-        logger.verbose(
-          `Rcon authentication cancelled due to other operation Pending: ${serverInfo.serverState.operationPending}`
-        );
+        serverInfo.serverState.authenticated = false;
+        controlEmitter.emit("exec", "auth", "fail");
         reject({ authenticated: false });
       }
-    });
-  }
+    };
+
+    authTimeout = setTimeout(() => {
+      logger.error("Authentication timed out");
+      disconnect();
+      finish(false);
+    }, 60000);
+
+    logger.debug("sending authentication request");
+    rcon.authenticate(cfg.rconPass).then(
+      () => finish(true),
+      (error) => {
+        logger.error("authentication error: " + error);
+        finish(false);
+      },
+    );
+  });
+
+  return authenticationPromise;
 }
 
 /**
@@ -75,10 +95,11 @@ function authenticate() {
  * @return {Promise<JSON-string>} - Promise object that yields the result of reload.
  */
 async function reloadMaplist() {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
+    (async () => {
     function getWorkshopCollection(id) {
       return new Promise((resolve, reject) => {
-        https
+        const request = https
           .get(
             `https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}&publishedfileids[0]=${id}&includechildren=true`,
             (res) => {
@@ -101,11 +122,16 @@ async function reloadMaplist() {
                 }
               });
             }
-          )
-          .on("error", (error) => {
+          );
+        request.setTimeout(steamRequestTimeout, () => {
+          request.destroy(
+            new Error(`Steam Workshop Collection request timed out after ${steamRequestTimeout} ms`),
+          );
+        });
+        request.on("error", (error) => {
             logger.warn(`Steam Workshop Collection request failed: ${error}`);
             reject(error);
-          });
+        });
       });
     }
 
@@ -119,7 +145,7 @@ async function reloadMaplist() {
           i++;
         });
 
-        https
+        const request = https
           .get(
             `https://api.steampowered.com/IPublishedFileService/GetDetails/v1?key=${cfg.apiToken}${idString}&appid=730`,
             (res) => {
@@ -170,11 +196,16 @@ async function reloadMaplist() {
                 }
               });
             }
-          )
-          .on("error", (error) => {
+          );
+        request.setTimeout(steamRequestTimeout, () => {
+          request.destroy(
+            new Error(`Steam Workshop Maps request timed out after ${steamRequestTimeout} ms`),
+          );
+        });
+        request.on("error", (error) => {
             logger.warn(`Steam Workshop Maps Request failed: ${error}`);
             reject(error);
-          });
+        });
       });
     }
 
@@ -183,9 +214,9 @@ async function reloadMaplist() {
         executeRcon("ds_workshop_listmaps ")
           .then((response) => {
             const mapArray = response.split(/\r?\n/);
-            const details = [];
+            let details = [];
             mapArray.forEach((value) => {
-              mapdetails.push({
+              details.push({
                 name: value,
                 official: false,
                 title: value,
@@ -265,7 +296,7 @@ Workshop maps not available.`);
       try {
         mapdetails.push(...(await getMapDetails(workshopMapIds, false)));
       } catch (error) {
-        logger.warn(`Getting Workshop maps details failed: ${error}`);
+        logger.warn(`Getting Workshop maps details from web failed: ${error}`);
         // As a fallback try to get workshop maps from server via rcon command.
         try {
           mapdetails.push(...(await getWorkshopCollectionMapsFromServer()));
@@ -273,6 +304,9 @@ Workshop maps not available.`);
           logger.warn(`Loading workshop maps from server failed: ${err}
 Workshop maps not available.`);
         }
+      }
+      if (mapdetails.length === 0) {
+        logger.warn("No workshop map details available.");
       }
     }
     if (mapdetails.length > 1) {
@@ -289,6 +323,7 @@ Workshop maps not available.`);
       logger.warn("Update maps failed: Maplist is empty.");
       reject({ success: false });
     }
+    })().then(resolve, reject);
   });
 }
 
