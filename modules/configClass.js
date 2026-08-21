@@ -1,8 +1,15 @@
 ﻿/**
  * Config class for CSGO Server API
  */
+const fs = require("fs");
+const path = require("path");
+
 class Config {
-  #userOptions = require("../config.js");
+  #userOptions = require(
+    fs.existsSync(path.join(__dirname, "../config.local.js"))
+      ? "../config.local.js"
+      : "../config.js",
+  );
   #screenCommand;
   #csgoCommand;
   #serverTokenCommand;
@@ -124,9 +131,7 @@ class Config {
   get serverCommandline() {
     let command = "";
     if (this.type == "local") {
-      command = `${this.#screenCommand} ${this.#csgoCommand} ${
-        this.#csgoArgs
-      }`;
+      command = `${this.#screenCommand} ${this.#csgoCommand} ${this.#csgoArgs}`;
       if (this._csgoToken !== "") {
         command = `${command} ${this.#serverTokenCommand}`;
       }
@@ -134,7 +139,6 @@ class Config {
       command = `docker compose -f ${this.#userOptions.dockerfile} up -d`;
     }
 
-    
     return command;
   }
 

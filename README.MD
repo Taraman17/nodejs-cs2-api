@@ -40,7 +40,7 @@ sudo apt install screen
 
 ## Configuration
 ### API:
-- Edit the settings in config.js - at least the first 5. They are explained in the file.
+- The API loads config.local.js when it exists and otherwise falls back to config.js. Use config.local.js for machine-specific settings and secrets; it is ignored by Git. Keep the generic defaults in config.js.
 - The API uses steam authentication which returns a Steam ID as URL (https://steamcommunity.com/openid/id/{steamid}). The last part is the SteamID64, which can be calculated from the other SteamID formats - various online tools are available. In the configuration, an array needs to be filled with the comma separated IDs of your intended admins as strings (e.g. ['{steamid-1}', '{steamid-2}']).
 - To display map preview images, a steamAPI key is needed. See https://steamcommunity.com/dev/apikey how to get one.
 It must be copied to the respective config option. To learn more on how the map-handling works see [Maps TL;DR](https://github.com/Taraman17/nodejs-cs2-api/blob/master/MAPS.MD)
@@ -59,7 +59,7 @@ following arguments are added to the CL:
 If a running server is detected, the logging settings will be set via rcon.
 
 If you need to change these and know what you are doing, you can edit them in "modules/configClass.js"
-You can add optional command line arguments in config.js
+You can add optional command line arguments in the active configuration file.
 
 ## Starting
 Start the script with 
