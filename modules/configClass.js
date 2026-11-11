@@ -1,8 +1,15 @@
 ﻿/**
  * Config class for CSGO Server API
  */
+const fs = require("fs");
+const path = require("path");
+
 class Config {
-  #userOptions = require("../config.js");
+  #userOptions = require(
+    fs.existsSync(path.join(__dirname, "../config.local.js"))
+      ? "../config.local.js"
+      : "../config.js",
+  );
   #screenCommand;
   #csgoCommand;
   #serverTokenCommand;
@@ -33,6 +40,10 @@ class Config {
     return args;
   }
 
+  get type() {
+    return this.#userOptions.type;
+  }
+
   get apiToken() {
     return this.#userOptions.apiToken;
   }
@@ -43,6 +54,10 @@ class Config {
 
   get admins() {
     return this.#userOptions.admins;
+  }
+
+  get dockerfile() {
+    return this.#userOptions.dockerfile;
   }
 
   get workshopCollection() {
@@ -114,12 +129,16 @@ class Config {
   }
 
   get serverCommandline() {
-    let command = `${this.#screenCommand} ${this.#csgoCommand} ${
-      this.#csgoArgs
-    }`;
-    if (this._csgoToken !== "") {
-      command = `${command} ${this.#serverTokenCommand}`;
+    let command = "";
+    if (this.type == "local") {
+      command = `${this.#screenCommand} ${this.#csgoCommand} ${this.#csgoArgs}`;
+      if (this._csgoToken !== "") {
+        command = `${command} ${this.#serverTokenCommand}`;
+      }
+    } else if (this.type == "docker") {
+      command = `docker compose -f ${this.#userOptions.dockerfile} up -d`;
     }
+
     return command;
   }
 
