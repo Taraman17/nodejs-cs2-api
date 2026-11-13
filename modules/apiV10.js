@@ -627,8 +627,9 @@ router.get("/control/kill", (req, res) => {
   };
   exec("/bin/ps -A |grep cs2", (error, stdout, stderr) => {
     if (error) {
-      logger.error(`exec error: ${error}, ${stderr}`);
-      res.status(501).json({ error: "Could not find csgo server process" });
+      logger.info("No running server found, resetting state.");
+      resetState();
+      res.json({ success: true });
     } else if (stdout.match(/cs2/) != null) {
       if (cfg.type == "local") {
         let pid = stdout.split(/\s+/)[1];
@@ -651,7 +652,10 @@ router.get("/control/kill", (req, res) => {
           `docker compose -f ${cfg.dockerfile} down`,
           (error, stdout, stderr) => {
             if (error) {
-              logger.error(`exec error: ${error}, ${stderr}`);
+              logger.error(`Could not stop Docker container: ${error}, ${stderr}`);
+              res
+                .status(501)
+                .json({ error: "Could not kill csgo server process" });
             } else {
               logger.verbose("Docker container stopped.");
               resetState();
@@ -660,6 +664,8 @@ router.get("/control/kill", (req, res) => {
           },
         );
       }
+    } else {
+      logger.info("No server process to kill found.");
     }
   });
 });

@@ -318,14 +318,14 @@ function authenticate(caller) {
 }
 
 function kill(caller) {
-  sendGet(`${apiPath}/control/kill`)
-    .done((data) => {
+  sendGet(`${apiPath}/control/kill`).done((data) => {
+    if (data.success) {
       window.location.href = "./gameserver.htm";
-    })
-    .fail((error) => {
+    } else {
       caller.disabled = true;
       $("#killerror").show("fast");
-    });
+    }
+  });
 }
 
 // Bot Training functions
