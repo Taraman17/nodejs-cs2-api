@@ -394,6 +394,9 @@ $(document).ready(() => {
             }
             if ("content" in document.createElement("template")) {
               var playerLi = document.querySelector("#playerTemplate");
+              playerLi.content
+                .querySelector(".player")
+                .setAttribute("id", player.steamID);
               playerLi.content.querySelector(".playerName").textContent =
                 player.name;
               playerLi.content.querySelector(".playerKills").textContent =
