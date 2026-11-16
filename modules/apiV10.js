@@ -443,17 +443,10 @@ router.get("/control/pause", (req, res) => {
     logger.verbose("Pausing round.");
     sf.executeRcon("mp_pause_match")
       .then((answer) => {
-        // L 10/16/2023 - 16:05:44: Match pause is enabled - mp_pause_match
-        logger.debug(answer);
-        if (answer.indexOf("Match pause is enabled - mp_pause_match") != -1) {
-          serverInfo.pause = true;
-          controlEmitter.emit("exec", "pause", "end");
-          res.json({ success: true });
-        } else {
-          logger.info(`Pausing failed: ${answer}`);
-          controlEmitter.emit("exec", "pause", "end");
-          res.json({ success: false });
-        }
+        // Server only sends empty answer on success.
+        serverInfo.pause = true;
+        controlEmitter.emit("exec", "pause", "end");
+        res.json({ success: true });
       })
       .catch((err) => {
         logger.info(`Pausing failed. Rcon error: ${err.message}`);
@@ -499,18 +492,10 @@ router.get("/control/unpause", (req, res) => {
     logger.verbose("Resuming round.");
     sf.executeRcon("mp_unpause_match")
       .then((answer) => {
-        // L 10/16/2023 - 16:06:08: Match pause is disabled - mp_unpause_match
-        if (
-          answer.indexOf("Match pause is disabled - mp_unpause_match") != -1
-        ) {
-          serverInfo.pause = false;
-          controlEmitter.emit("exec", "pause", "end");
-          res.json({ success: true });
-        } else {
-          logger.info(`Unpausing failed: ${answer}`);
-          controlEmitter.emit("exec", "pause", "end");
-          res.json({ success: false });
-        }
+        // Server only sends empty answer on success.
+        serverInfo.pause = false;
+        controlEmitter.emit("exec", "pause", "end");
+        res.json({ success: true });
       })
       .catch((err) => {
         logger.info(`Unpausing failed. Rcon error: ${err}`);
