@@ -113,7 +113,7 @@ router.post('/log', (req, res) => {
                     serverInfo.assignPlayer(matches[1], matches[2], matches[3]);
                 } else if (line.search(/"[^"]+<\d+><[^>]+><[^>]*>" \[[^\]]*\] killed "[^"]+<\d+><[^>]+><[^>]*>"/) != -1) {
                     // '11/17/2026 - 00:14:07.756 - "[Klosser] Taraman<2><[U:1:12610374]><TERRORIST>" [-5273 -2167 617] killed "Skullhead<4><BOT><CT>" [-5556 -1648 610] with "glock" (headshot)'
-                    rex = /"(?<killer_name>[^"]+?)<\d+><(?<killer_steamid>\[U:\d+:\d+\]|BOT|STEAM_[\d:]+)><(?<killer_team>[TC])[^>]*>"\s+\[[^\]]*\]\s+killed\s+"(?<victim_name>[^"]+?)<\d+><(?<victim_steamid>\[U:\d+:\d+\]|BOT|STEAM_[\d:]+)><(?<victim_team>[TC])[^>]*>"/
+                    rex = /"(?<killer_name>[^"]+?)<\d+><\[?(?<killer_steamid>U:\d+:\d+|BOT|STEAM_[\d:]+)\]?><(?<killer_team>[TC])[^>]*>"\s+\[[^\]]*\]\s+killed\s+"(?<victim_name>[^"]+?)<\d+><\[?(?<victim_steamid>U:\d+:\d+|BOT|STEAM_[\d:]+)\]?><(?<victim_team>[TC])[^>]*>"/;
                     const match = line.match(rex);
                     serverInfo.recordKill(match.groups);
                 }
