@@ -265,13 +265,21 @@ class ServerInfo {
     this.serverInfoChanged.emit("change");
   }
 
-  recordKill(killer, victim) {
-    const killPlayer = this.#players.find((x) => x.steamID === killer);
+  recordKill(data) {
+    var killPlayer = this.#players.find((x) => x.steamID === data.killer_steamid);
     if (killPlayer !== undefined) {
       killPlayer.kills += 1;
+    } else {
+      this.assignPlayer(data.killer_name, data.killer_steamid, data.killer_team == "CT" ? data.killer_team : "T");
+      killPlayer = this.#players.find((x) => x.steamID === data.killer_steamid);
+      killPlayer.kills += 1;
     }
-    const victimPlayer = this.#players.find((x) => x.steamID === victim);
+    var victimPlayer = this.#players.find((x) => x.steamID === data.victim_steamid);
     if (victimPlayer !== undefined) {
+      victimPlayer.deaths += 1;
+    } else {
+      this.assignPlayer(data.victim_name, data.victim_steamid, data.victim_team == "CT" ? data.victim_team : "T");
+      victimPlayer = this.#players.find((x) => x.steamID === data.victim_steamid);
       victimPlayer.deaths += 1;
     }
     this.serverInfoChanged.emit("change");
