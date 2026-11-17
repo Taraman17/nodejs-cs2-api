@@ -23,8 +23,8 @@ class ServerInfo {
 
   #players = [
     // { 'name': '',
-    //   'steamID': '',
-    //   'team': '',
+    //   'steamID': '', // [U:1:12610374]
+    //   'team': '', // T, C, S, U
     //   'kills': 0,
     //   'deaths': 0 }
   ];
@@ -270,7 +270,7 @@ class ServerInfo {
     if (killPlayer !== undefined) {
       killPlayer.kills += 1;
     } else {
-      this.assignPlayer(data.killer_name, data.killer_steamid, data.killer_team == "CT" ? data.killer_team : "T");
+      this.assignPlayer(data.killer_name, data.killer_steamid, data.killer_team);
       killPlayer = this.#players.find((x) => x.steamID === data.killer_steamid);
       killPlayer.kills += 1;
     }
@@ -278,7 +278,7 @@ class ServerInfo {
     if (victimPlayer !== undefined) {
       victimPlayer.deaths += 1;
     } else {
-      this.assignPlayer(data.victim_name, data.victim_steamid, data.victim_team == "CT" ? data.victim_team : "T");
+      this.assignPlayer(data.victim_name, data.victim_steamid, data.victim_team);
       victimPlayer = this.#players.find((x) => x.steamID === data.victim_steamid);
       victimPlayer.deaths += 1;
     }
