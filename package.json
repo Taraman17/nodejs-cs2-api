@@ -17,7 +17,7 @@
     },
     "name": "nodejs-cs2-api",
     "description": "## Disclaimer The use of this software is at your own risk. It exposes control of your server and shell functions to the internet. Although I did everything to secure the API, any bugs may lead to security breaches on your server. I strongly adivise to use secure connections to prevent possible man-in-the-middle attacks.",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "main": "serverControl.js",
     "directories": {
         "public": "public",

@@ -16,10 +16,6 @@
         "id": 3339983232
     },
     {
-        "name": "cs_alpine",
-        "id": 3221491619
-    },
-    {
         "name": "cs_italy",
         "id": 125436057
     },
@@ -52,6 +48,10 @@
         "id": 3437809122
     },
     {
+        "name": "de_cbble",
+        "id": 205239595
+    },
+    {
         "name": "de_debris",
         "id": 3539217452
     },
@@ -66,10 +66,6 @@
     {
         "name": "de_fachwerk",
         "id": 3442040035
-    },
-    {
-        "name": "de_golden",
-        "id": 3286163323
     },
     {
         "name": "de_inferno",
@@ -88,24 +84,8 @@
         "id": 205240106
     },
     {
-        "name": "de_palacio",
-        "id": 3249860053
-    },
-    {
         "name": "de_poseidon",
         "id": 3522144043
-    },
-    {
-        "name": "de_rooftop",
-        "id": 3536622725
-    },
-    {
-        "name": "de_sanctum",
-        "id": 3643331442
-    },
-    {
-        "name": "de_stronghold",
-        "id": 3477094554
     },
     {
         "name": "de_train",
@@ -114,9 +94,5 @@
     {
         "name": "de_vertigo",
         "id": 125439851
-    },
-    {
-        "name": "de_warden",
-        "id": 3256988376
     }
 ]

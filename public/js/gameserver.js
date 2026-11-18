@@ -165,35 +165,40 @@ function clickButton(aButton) {
 }
 
 function showPlayerMenu(event) {
-  $("#playerDropdown").css({
-    top: event.pageY,
-    left: event.pageX,
-    display: "block",
-  });
-  $("#playerDropdown").attr("player", event.target.textContent);
-  // Close the dropdown menu if the user clicks outside of it
-  window.onclick = function (event) {
-    if (!event.target.matches(".dropbtn")) {
-      $("#playerDropdown").css("display", "none");
-      window.onclick = "";
+  event.stopPropagation();
+
+  const $menu = $("#playerDropdown");
+  $menu
+    .css({ top: event.pageY, left: event.pageX, display: "block" })
+    .attr("player", event.target.textContent);
+
+  function closeMenu(e) {
+    if ($menu[0].contains(e.target)) {
+      // Klick im Menü: Listener erneut registrieren, Menü bleibt offen
+      document.addEventListener("click", closeMenu, { once: true });
+      return;
     }
-  };
+    $menu.css("display", "none");
+  }
+
+  document.addEventListener("click", closeMenu, { once: true });
 }
 
 function movePlayer(event) {
-  // This function uses sourcemod plugin "moveplayers" -> https://forums.alliedmods.net/showthread.php?p=2471466
-  /* "sm_movect"                        - Move a player to the counter-terrorist team.
-       "sm_movespec"                      - Move a player to the spectators team.
-       "sm_movet"                         - Move a player to the terrorist team. */
+  // This function uses SwiftlyS2 plugin "T3-Admin" -> https://github.com/a2Labs-cc/T3-Admin
+  // T3-Admin Usage: !team <target> <t/ct/spec>
   let player = event.target.parentElement.getAttribute("player");
   let command = event.target.getAttribute("command");
-  sendGet(
-    `${apiPath}/rcon`,
-    `message=sm_move${command} "${player}"`,
-    (data) => {
-      // no actions for now.
-    },
-  );
+  sendGet(`${apiPath}/rcon`, `message=team "${player}" ${command}`, (data) => {
+    $("#playerDropdown").css("display", "none");
+  });
+}
+
+function kickPlayer(event) {
+  let player = event.target.parentElement.getAttribute("player");
+  sendGet(`${apiPath}/rcon`, `message=kick "${player}"`, (data) => {
+    $("#playerDropdown").css("display", "none");
+  });
 }
 
 function getMaps() {
@@ -318,14 +323,14 @@ function authenticate(caller) {
 }
 
 function kill(caller) {
-  sendGet(`${apiPath}/control/kill`)
-    .done((data) => {
+  sendGet(`${apiPath}/control/kill`).done((data) => {
+    if (data.success) {
       window.location.href = "./gameserver.htm";
-    })
-    .fail((error) => {
+    } else {
       caller.disabled = true;
       $("#killerror").show("fast");
-    });
+    }
+  });
 }
 
 // Bot Training functions
@@ -389,6 +394,9 @@ $(document).ready(() => {
             }
             if ("content" in document.createElement("template")) {
               var playerLi = document.querySelector("#playerTemplate");
+              playerLi.content
+                .querySelector(".player")
+                .setAttribute("id", player.steamID);
               playerLi.content.querySelector(".playerName").textContent =
                 player.name;
               playerLi.content.querySelector(".playerKills").textContent =

@@ -1,7 +1,7 @@
 /**
  * @file CS:GO Dedicated Server Control
  * @author Markus Adrario <mozilla@adrario.de>
- * @version 2.0
+ * @version 2.1.0
  * @requires express
  * @requires express-session
  * @requires express-rate-limit

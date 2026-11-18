@@ -51,7 +51,7 @@
         </div>
         <div id="players">
             <h3>Players:</h3>
-            <div id="playerLists" onclick="showPlayerMenu(event);">
+            <div id="playerLists">
                 <div id="cPlayers" class="playerDiv">
                     <h4 class="counter">Counter Terrorists</h4>
                     <ul id="cList">
@@ -88,7 +88,7 @@
         <p onclick='movePlayer(event);' command="t">Move to T</p>
         <p onclick='movePlayer(event);' command="ct">Move to CT</p>
         <p onclick='movePlayer(event);' command="spec">Move to Spectators</p>
-        <p onclick='alert("test");'>Kick from Server</p>
+        <p onclick='kickPlayer(event);'>Kick from Server</p>
     </div>
     <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="js/gameserver.js"></script>
@@ -101,7 +101,7 @@
     </div>
 </template>
 <template id="playerTemplate">
-    <li class="player">
+    <li class="player" onclick="showPlayerMenu(event);">
         <p class="playerName"></p>
         <div class="playerScore">
             <p class="playerKills"></p>

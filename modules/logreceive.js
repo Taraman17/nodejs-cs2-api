@@ -111,10 +111,11 @@ router.post('/log', (req, res) => {
                     rex = /"(.{1,32})<\d{1,3}><\[(\w:\d:\d{1,10})\]>" switched from team <\S{1,10}> to <(\S{1,10})>/g;
                     matches = rex.exec(line);
                     serverInfo.assignPlayer(matches[1], matches[2], matches[3]);
-                } else if (line.search(/\[\w:\d:\d{1,10}\]><\w{1,10}>" \[.{1,5} .{1,5} .{1,5}\] killed ".{1,32}<\d{1,3}><\[\w:\d:\d{1,10}\]/) != -1) {
-                    rex = /\[(\w:\d:\d{1,10})\]><\w{1,10}>" \[.{1,5} .{1,5} .{1,5}\] killed ".{1,32}<\d{1,3}><\[(\w:\d:\d{1,10})\]/
-                    matches = rex.exec(line);
-                    serverInfo.recordKill(matches[1], matches[2]);
+                } else if (line.search(/"[^"]+<\d+><[^>]+><[^>]*>" \[[^\]]*\] killed "[^"]+<\d+><[^>]+><[^>]*>"/) != -1) {
+                    // '11/17/2026 - 00:14:07.756 - "[Klosser] Taraman<2><[U:1:12610374]><TERRORIST>" [-5273 -2167 617] killed "Skullhead<4><BOT><CT>" [-5556 -1648 610] with "glock" (headshot)'
+                    rex = /"(?<killer_name>[^"]+?)<\d+><\[?(?<killer_steamid>U:\d+:\d+|BOT|STEAM_[\d:]+)\]?><(?<killer_team>[TC])[^>]*>"\s+\[[^\]]*\]\s+killed\s+"(?<victim_name>[^"]+?)<\d+><\[?(?<victim_steamid>U:\d+:\d+|BOT|STEAM_[\d:]+)\]?><(?<victim_team>[TC])[^>]*>"/;
+                    const match = line.match(rex);
+                    serverInfo.recordKill(match.groups);
                 }
             } else if (line.indexOf('Log file closed') != -1) {
                 // end of current log file. (Usually on mapchange or server quit.)
